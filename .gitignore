@@ -1,0 +1,34 @@
+# Maven
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# IDEs
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.project
+.classpath
+*.code-workspace
+
+# Java
+*.class
+*.log
+hs_err_pid*
+
+# Node / frontend (Fase 4)
+node_modules/
+dist/
+.vite/
+
+# Entorno / secretos
+.env
+*.env.local
+
+# SO
+.DS_Store
+Thumbs.db

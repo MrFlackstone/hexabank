@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.hexabank</groupId>
+        <artifactId>hexabank-parent</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>shared-events</artifactId>
+    <name>HexaBank Shared Events</name>
+    <description>
+        Contratos de eventos compartidos entre servicios (records inmutables).
+        Modulo Java puro: SIN dependencias de Spring/JPA/Kafka para no acoplar el
+        contrato a la infraestructura. Los records concretos llegan en la Fase 2.
+    </description>
+
+    <!-- Sin dependencias en Fase 0: el modulo solo establece paquete y contrato base. -->
+</project>

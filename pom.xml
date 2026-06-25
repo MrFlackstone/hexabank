@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.hexabank</groupId>
+    <artifactId>hexabank-parent</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <packaging>pom</packaging>
+
+    <name>HexaBank Parent</name>
+    <description>
+        Monorepo padre de HexaBank: demo de microservicios hexagonales con saga Kafka.
+        Gestiona versiones de forma centralizada (Java 21 + BOM de Spring Boot 3.x).
+        Los servicios se anaden como modulos en sus respectivas fases.
+    </description>
+
+    <!--
+        No heredamos de spring-boot-starter-parent. En su lugar importamos el BOM
+        spring-boot-dependencies en <dependencyManagement>. Asi 'shared-events' (modulo
+        Java puro, sin Spring) no arrastra el plugin de empaquetado fat-jar; cada servicio
+        declarara spring-boot-maven-plugin cuando lo necesite.
+    -->
+
+    <properties>
+        <java.version>21</java.version>
+        <maven.compiler.release>21</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <spring-boot.version>3.5.15</spring-boot.version>
+    </properties>
+
+    <modules>
+        <module>shared-events</module>
+        <!-- account-service, transfer-service, ledger-service: se anaden en sus fases -->
+    </modules>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- BOM de Spring Boot: fija versiones de todas las dependencias gestionadas -->
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>${spring-boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <configuration>
+                        <release>${maven.compiler.release}</release>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+</project>
