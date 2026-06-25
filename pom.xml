@@ -32,7 +32,8 @@
 
     <modules>
         <module>shared-events</module>
-        <!-- account-service, transfer-service, ledger-service: se anaden en sus fases -->
+        <module>account-service</module>
+        <!-- transfer-service, ledger-service: se anaden en sus fases -->
     </modules>
 
     <dependencyManagement>
@@ -56,7 +57,22 @@
                     <artifactId>maven-compiler-plugin</artifactId>
                     <configuration>
                         <release>${maven.compiler.release}</release>
+                        <!--
+                            Conserva los nombres de los parametros en el bytecode. Spring lo necesita
+                            para resolver @PathVariable/@RequestParam por nombre. spring-boot-starter-parent
+                            lo activa por defecto; como importamos el BOM en su lugar, lo activamos aqui.
+                        -->
+                        <parameters>true</parameters>
                     </configuration>
+                </plugin>
+                <!--
+                    Fija la version del plugin de Spring Boot a la del BOM. Sin esto, Maven resuelve
+                    la ULTIMA disponible (p. ej. 4.1.0), incompatible con el runtime 3.5.x.
+                -->
+                <plugin>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-maven-plugin</artifactId>
+                    <version>${spring-boot.version}</version>
                 </plugin>
             </plugins>
         </pluginManagement>

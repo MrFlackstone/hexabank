@@ -57,20 +57,23 @@ services:
       - hexabank-net
     restart: unless-stopped
 
-  # --- Postgres base. Cada servicio usara su propia DB logica en su fase. ---
-  postgres:
+  # --- Postgres dedicado de account-service (DB-per-service). ---
+  # Cada microservicio posee su propia base de datos: sin acoplamiento por BD compartida.
+  # Bloque de puertos host 544x (account=5442, transfer=5443, ledger=5444): evita el
+  # PostgreSQL nativo de Windows que ocupa el 5432. Dentro del contenedor sigue siendo 5432.
+  postgres-account:
     image: postgres:16-alpine
-    container_name: postgres
+    container_name: postgres-account
     ports:
-      - "5432:5432"
+      - "5442:5432"
     environment:
       POSTGRES_USER: hexabank
       POSTGRES_PASSWORD: hexabank
-      POSTGRES_DB: hexabank
+      POSTGRES_DB: accountdb
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - postgres-account-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U hexabank -d hexabank"]
+      test: ["CMD-SHELL", "pg_isready -U hexabank -d accountdb"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -85,4 +88,4 @@ networks:
 
 volumes:
   kafka-data:
-  postgres-data:
+  postgres-account-data:
