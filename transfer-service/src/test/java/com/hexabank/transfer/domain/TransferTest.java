@@ -44,6 +44,13 @@ class TransferTest {
     }
 
     @Test
+    @DisplayName("request rechaza importe por encima del máximo")
+    void requestRejectsAmountOverLimit() {
+        assertThatThrownBy(() -> Transfer.request(source, destination, new BigDecimal("1000000.01")))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     @DisplayName("camino feliz: PENDING -> DEBITED -> COMPLETED")
     void happyPath() {
         Transfer transfer = Transfer.request(source, destination, new BigDecimal("50.00"));

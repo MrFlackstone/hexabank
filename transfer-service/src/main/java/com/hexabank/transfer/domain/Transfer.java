@@ -17,6 +17,9 @@ import java.util.UUID;
  */
 public class Transfer {
 
+    /** Tope máximo por transferencia; replica el límite del adaptador REST para proteger el dominio. */
+    private static final BigDecimal MAX_AMOUNT = new BigDecimal("1000000.00");
+
     private final TransferId id;
     private final UUID sourceAccountId;
     private final UUID destinationAccountId;
@@ -84,6 +87,9 @@ public class Transfer {
     private static void requirePositive(BigDecimal amount) {
         if (amount == null || amount.signum() <= 0) {
             throw new IllegalArgumentException("El importe de la transferencia debe ser positivo");
+        }
+        if (amount.compareTo(MAX_AMOUNT) > 0) {
+            throw new IllegalArgumentException("El importe supera el máximo por transferencia: " + MAX_AMOUNT);
         }
     }
 

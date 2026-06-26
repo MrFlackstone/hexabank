@@ -1,5 +1,7 @@
 package com.hexabank.transfer.infrastructure.rest.dto;
 
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 
@@ -19,5 +21,7 @@ public record CreateTransferRequest(
 
         @NotNull(message = "El importe es obligatorio")
         @Positive(message = "El importe debe ser positivo")
+        @Digits(integer = 17, fraction = 2, message = "El importe excede la precisión permitida")
+        @DecimalMax(value = "1000000.00", message = "El importe supera el máximo por transferencia")
         BigDecimal amount) {
 }
