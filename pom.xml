@@ -33,7 +33,8 @@
     <modules>
         <module>shared-events</module>
         <module>account-service</module>
-        <!-- transfer-service, ledger-service: se anaden en sus fases -->
+        <module>transfer-service</module>
+        <!-- ledger-service: se anade en su fase -->
     </modules>
 
     <dependencyManagement>

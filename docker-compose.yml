@@ -82,6 +82,28 @@ services:
       - hexabank-net
     restart: unless-stopped
 
+  # --- Postgres dedicado de transfer-service (DB-per-service). ---
+  postgres-transfer:
+    image: postgres:16-alpine
+    container_name: postgres-transfer
+    ports:
+      - "5443:5432"
+    environment:
+      POSTGRES_USER: hexabank
+      POSTGRES_PASSWORD: hexabank
+      POSTGRES_DB: transferdb
+    volumes:
+      - postgres-transfer-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hexabank -d transferdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - hexabank-net
+    restart: unless-stopped
+
 networks:
   hexabank-net:
     driver: bridge
@@ -89,3 +111,4 @@ networks:
 volumes:
   kafka-data:
   postgres-account-data:
+  postgres-transfer-data:
