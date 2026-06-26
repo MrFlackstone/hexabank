@@ -31,7 +31,7 @@ public class AccountPersistenceAdapter implements LoadAccountPort, SaveAccountPo
 
     @Override
     public Account save(Account account) {
-        AccountJpaEntity saved = repository.save(toEntity(account));
+        AccountJpaEntity saved = repository.saveAndFlush(toEntity(account));
         return toDomain(saved);
     }
 

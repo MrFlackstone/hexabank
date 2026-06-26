@@ -23,10 +23,21 @@
         Por eso ninguna dependencia declara <version>.
     -->
     <dependencies>
+        <!-- Contratos de evento compartidos (records de la saga) -->
+        <dependency>
+            <groupId>com.hexabank</groupId>
+            <artifactId>shared-events</artifactId>
+            <version>0.0.1-SNAPSHOT</version>
+        </dependency>
         <!-- API REST (adaptador de entrada) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <!-- Mensajería Kafka (adaptadores in/out de la saga) -->
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka</artifactId>
         </dependency>
         <!-- Persistencia JPA (adaptador de salida) -->
         <dependency>
@@ -74,6 +85,24 @@
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Contenedor Kafka para los IT de la saga -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>kafka</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Utilidades de test de Spring Kafka (consumidores/productores de prueba) -->
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Aserciones asíncronas: espera a que el consumidor procese el evento -->
+        <dependency>
+            <groupId>org.awaitility</groupId>
+            <artifactId>awaitility</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

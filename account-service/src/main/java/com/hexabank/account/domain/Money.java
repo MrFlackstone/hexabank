@@ -7,9 +7,8 @@ import java.util.Objects;
  * Value Object que representa una cantidad de dinero en EUR.
  *
  * <p>Es un {@code record} inmutable: una vez creado no cambia, por lo que es seguro compartirlo
- * entre hilos (relevante para la concurrencia de la Fase 2). Encapsula sus invariantes en el
- * constructor compacto, evitando el <em>primitive obsession</em> de pasar {@link BigDecimal} sueltos
- * por todo el dominio.</p>
+ * entre hilos. Encapsula sus invariantes en el constructor compacto, evitando el
+ * <em>primitive obsession</em> de pasar {@link BigDecimal} sueltos por todo el dominio.</p>
  *
  * <p>Invariantes garantizadas:</p>
  * <ul>
@@ -18,7 +17,7 @@ import java.util.Objects;
  *   <li>Importe no negativo (un saldo o un importe de operación nunca es {@code < 0}).</li>
  * </ul>
  *
- * <p>Moneda fija EUR en toda la Fase 1 (sin conversión de divisas), por decisión de alcance.</p>
+ * <p>Moneda fija EUR (sin conversión de divisas).</p>
  */
 public record Money(BigDecimal amount) {
 

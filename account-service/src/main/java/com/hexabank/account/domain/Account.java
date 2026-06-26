@@ -8,15 +8,10 @@ import java.util.Objects;
  * Agregado raíz del dominio: una cuenta bancaria con su saldo.
  *
  * <p>Concentra las <strong>reglas de negocio</strong> (invariantes de saldo) y no depende de ningún
- * framework: ni Spring, ni JPA, ni Kafka. Esa es la regla central de la arquitectura hexagonal —
- * el dominio es el núcleo y todo lo demás (infraestructura) depende de él, nunca al revés.</p>
+ * framework: ni Spring, ni JPA, ni Kafka.</p>
  *
- * <h2>Concurrencia (gap declarado para la entrevista)</h2>
- * <p>El campo {@code version} es el contador de <strong>bloqueo optimista</strong>. El dominio lo
- * modela como un simple {@code long}; es el adaptador JPA quien lo marca con {@code @Version} para
- * que Hibernate detecte escrituras concurrentes (dos operaciones sobre la misma cuenta) y rechace
- * la que llega con una versión obsoleta. Así se evita un sobregiro por condición de carrera sin
- * recurrir a bloqueo pesimista (no se bloquea la fila).</p>
+ * <p>El campo {@code version} es el contador de <strong>bloqueo optimista</strong>: el dominio lo
+ * modela como un {@code long} y el adaptador JPA lo marca con {@code @Version}.</p>
  */
 public class Account {
 

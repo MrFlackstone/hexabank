@@ -2,23 +2,22 @@ spring:
   application:
     name: account-service
   datasource:
-    # Postgres dedicado del servicio (DB-per-service). En local lo levanta docker-compose.
-    # Puerto host 5442 (el 5432 lo ocupa el PostgreSQL nativo de Windows).
     url: jdbc:postgresql://localhost:5442/accountdb
     username: hexabank
     password: hexabank
   jpa:
     hibernate:
-      # 'validate': Hibernate NO crea ni modifica el esquema; solo comprueba que las entidades
-      # casan con las tablas. La fuente de verdad del DDL es Flyway, no Hibernate.
       ddl-auto: validate
     properties:
       hibernate:
         format_sql: true
   flyway:
     enabled: true
-    # Las migraciones versionadas de db/migration son la fuente de verdad del esquema.
     locations: classpath:db/migration
+  kafka:
+    bootstrap-servers: localhost:29092
+    consumer:
+      group-id: account-service
 
 server:
   port: 8081

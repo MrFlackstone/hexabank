@@ -8,6 +8,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
+import org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -21,15 +23,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Test de integración del adaptador de persistencia contra un Postgres real (Testcontainers).
- *
- * <p>{@code @ServiceConnection} (Spring Boot 3.1+) autocablea la URL/credenciales del contenedor al
- * {@code DataSource} de Spring: no hace falta {@code @DynamicPropertySource}. Flyway aplica las
- * migraciones al arrancar el contexto, por lo que se prueba el esquema real, no uno generado por
- * Hibernate. Requiere Docker en ejecución.</p>
+ * Test de integración del adaptador de persistencia contra un Postgres real (Testcontainers), con
+ * Flyway aplicando el esquema. Requiere Docker.
  */
 @SpringBootTest
 @Testcontainers
+@ImportAutoConfiguration(exclude = KafkaAutoConfiguration.class)
 class AccountPersistenceAdapterIT {
 
     @Container

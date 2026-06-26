@@ -10,12 +10,10 @@ import com.hexabank.account.domain.AccountId;
 import com.hexabank.account.domain.exception.AccountNotFoundException;
 
 /**
- * Implementación de los casos de uso de cuentas: orquesta el dominio a través de los puertos de salida.
+ * Casos de uso de creación y consulta de cuentas: orquesta el dominio a través de los puertos de salida.
  *
- * <p>Es una clase <strong>plana</strong>, sin anotaciones de Spring ({@code @Service}), a propósito:
- * mantiene la capa de aplicación libre de framework. Su instanciación como bean se hace por
- * configuración explícita en {@code config/BeanConfiguration}. Así el "qué hace la aplicación" queda
- * separado del "cómo se cablea en Spring".</p>
+ * <p>Es una clase plana, sin anotaciones de Spring; se instancia como bean en
+ * {@code config/BeanConfiguration}.</p>
  */
 public class AccountService implements CreateAccountUseCase, GetAccountUseCase {
 

@@ -1,23 +1,25 @@
 package com.hexabank.shared.events;
 
-/**
- * Contrato base de todos los eventos de dominio que viajan por Kafka entre servicios.
- *
- * <p>Es una {@code sealed interface}: la lista de eventos permitidos es cerrada y explicita,
- * de modo que el compilador obliga a tratar todos los casos en los {@code switch} de los
- * consumidores (pattern matching exhaustivo de Java 21). Esto evita eventos "huerfanos"
- * sin manejar.</p>
- *
- * <p>En la Fase 0 solo se establece el modulo y el paquete. Los records concretos
- * (p. ej. {@code DebitRequested}, {@code MoneyDebited}, {@code TransferCompleted}) se anaden
- * a la clausula {@code permits} en la Fase 2, cuando se implemente la saga Kafka.</p>
- */
-public sealed interface DomainEvent permits DomainEvent.Placeholder {
+import java.util.UUID;
 
-    /**
-     * Marcador temporal para que la interfaz selle correctamente sin eventos aun definidos.
-     * Se elimina en la Fase 2 al introducir los eventos reales de la saga.
-     */
-    record Placeholder() implements DomainEvent {
-    }
+/**
+ * Contrato base de los eventos de dominio que viajan por Kafka entre servicios.
+ *
+ * <p>Es una {@code sealed interface}: la lista de eventos permitidos es cerrada y explícita, lo que
+ * permite el pattern matching exhaustivo de Java 21 en los consumidores. Este módulo es Java puro:
+ * sin Spring, JPA ni Kafka.</p>
+ *
+ * <p>Todo evento expone {@link #eventId()} (identificador único del mensaje) y {@link #transferId()}
+ * (identificador de la transferencia a la que pertenece).</p>
+ */
+public sealed interface DomainEvent
+        permits DebitRequested, CreditRequested, RefundRequested,
+                MoneyDebited, DebitFailed, MoneyCredited, CreditFailed, MoneyRefunded,
+                TransferCompleted, TransferFailed {
+
+    /** Identificador único del evento. */
+    UUID eventId();
+
+    /** Identificador de la transferencia a la que pertenece el evento. */
+    UUID transferId();
 }
