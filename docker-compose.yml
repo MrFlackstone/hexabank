@@ -104,6 +104,28 @@ services:
       - hexabank-net
     restart: unless-stopped
 
+  # --- Postgres dedicado de ledger-service (DB-per-service). ---
+  postgres-ledger:
+    image: postgres:16-alpine
+    container_name: postgres-ledger
+    ports:
+      - "5444:5432"
+    environment:
+      POSTGRES_USER: hexabank
+      POSTGRES_PASSWORD: hexabank
+      POSTGRES_DB: ledgerdb
+    volumes:
+      - postgres-ledger-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hexabank -d ledgerdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - hexabank-net
+    restart: unless-stopped
+
 networks:
   hexabank-net:
     driver: bridge
@@ -112,3 +134,4 @@ volumes:
   kafka-data:
   postgres-account-data:
   postgres-transfer-data:
+  postgres-ledger-data:
