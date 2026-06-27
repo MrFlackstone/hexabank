@@ -108,10 +108,17 @@
 
     <build>
         <plugins>
-            <!-- Empaqueta el fat-jar ejecutable y habilita 'spring-boot:run' -->
+            <!--
+                Empaqueta el fat-jar ejecutable (con classifier 'exec') y habilita 'spring-boot:run'.
+                El classifier deja el jar principal como librería normal, para que otros módulos
+                (p. ej. e2e-tests) puedan depender de sus clases.
+            -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <classifier>exec</classifier>
+                </configuration>
             </plugin>
             <!-- Failsafe ejecuta los tests de integración (*IT) en la fase 'verify'. -->
             <plugin>
