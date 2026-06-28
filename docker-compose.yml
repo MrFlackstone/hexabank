@@ -126,6 +126,67 @@ services:
       - hexabank-net
     restart: unless-stopped
 
+  # --- Microservicios (cada uno hexagonal). Se construyen desde la raiz del repo (multi-modulo).
+  # No se tocan los application.yml: los valores de localhost se sobreescriben por env aprovechando
+  # el relaxed binding de Spring (SPRING_DATASOURCE_URL / SPRING_KAFKA_BOOTSTRAP_SERVERS). Dentro de
+  # la red de compose los hosts son los nombres de servicio (kafka, postgres-*) y el puerto interno. ---
+  account-service:
+    build:
+      context: .
+      dockerfile: account-service/Dockerfile
+    container_name: account-service
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-account:5432/accountdb
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres-account:
+        condition: service_healthy
+    networks:
+      - hexabank-net
+    restart: unless-stopped
+
+  transfer-service:
+    build:
+      context: .
+      dockerfile: transfer-service/Dockerfile
+    container_name: transfer-service
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-transfer:5432/transferdb
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres-transfer:
+        condition: service_healthy
+    networks:
+      - hexabank-net
+    restart: unless-stopped
+
+  ledger-service:
+    build:
+      context: .
+      dockerfile: ledger-service/Dockerfile
+    container_name: ledger-service
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-ledger:5432/ledgerdb
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres-ledger:
+        condition: service_healthy
+    networks:
+      - hexabank-net
+    restart: unless-stopped
+
 networks:
   hexabank-net:
     driver: bridge
