@@ -4,11 +4,14 @@ import com.hexabank.shared.events.CreditRequested;
 import com.hexabank.shared.events.DebitRequested;
 import com.hexabank.shared.events.DomainEvent;
 import com.hexabank.shared.events.RefundRequested;
+import com.hexabank.shared.events.TransferCompleted;
+import com.hexabank.shared.events.TransferFailed;
 import com.hexabank.transfer.application.port.in.RequestTransferCommand;
 import com.hexabank.transfer.application.port.out.EventPublisherPort;
 import com.hexabank.transfer.application.port.out.LoadTransferPort;
 import com.hexabank.transfer.application.port.out.ProcessedEventPort;
 import com.hexabank.transfer.application.port.out.SaveTransferPort;
+import com.hexabank.transfer.application.port.out.TransferMetricsPort;
 import com.hexabank.transfer.domain.Transfer;
 import com.hexabank.transfer.domain.TransferStatus;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,6 +47,8 @@ class TransferServiceTest {
     EventPublisherPort eventPublisher;
     @Mock
     ProcessedEventPort processedEvents;
+    @Mock
+    TransferMetricsPort metrics;
 
     TransferService service;
 
@@ -53,7 +58,7 @@ class TransferServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new TransferService(loadTransferPort, saveTransferPort, eventPublisher, processedEvents);
+        service = new TransferService(loadTransferPort, saveTransferPort, eventPublisher, processedEvents, metrics);
     }
 
     @Test
@@ -113,8 +118,39 @@ class TransferServiceTest {
 
         service.onMoneyDebited(eventId, UUID.randomUUID());
 
-        verifyNoInteractions(loadTransferPort, saveTransferPort, eventPublisher);
+        verifyNoInteractions(loadTransferPort, saveTransferPort, eventPublisher, metrics);
         verify(processedEvents, never()).markProcessed(any());
+    }
+
+    @Test
+    @DisplayName("onMoneyCredited completa la transferencia e incrementa la métrica de éxito")
+    void onMoneyCreditedCountsCompleted() {
+        Transfer transfer = Transfer.request(source, destination, new BigDecimal("50.00"));
+        transfer.markDebited();
+        when(processedEvents.alreadyProcessed(eventId)).thenReturn(false);
+        when(loadTransferPort.findById(any())).thenReturn(Optional.of(transfer));
+
+        service.onMoneyCredited(eventId, transfer.id().value());
+
+        assertThat(transfer.status()).isEqualTo(TransferStatus.COMPLETED);
+        assertThat(capturePublished()).isInstanceOf(TransferCompleted.class);
+        verify(metrics).transferCompleted();
+        verify(metrics, never()).transferFailed();
+    }
+
+    @Test
+    @DisplayName("onDebitFailed marca FAILED e incrementa la métrica de fallo")
+    void onDebitFailedCountsFailed() {
+        Transfer transfer = Transfer.request(source, destination, new BigDecimal("50.00"));
+        when(processedEvents.alreadyProcessed(eventId)).thenReturn(false);
+        when(loadTransferPort.findById(any())).thenReturn(Optional.of(transfer));
+
+        service.onDebitFailed(eventId, transfer.id().value(), "Fondos insuficientes");
+
+        assertThat(transfer.status()).isEqualTo(TransferStatus.FAILED);
+        assertThat(capturePublished()).isInstanceOf(TransferFailed.class);
+        verify(metrics).transferFailed();
+        verify(metrics, never()).transferCompleted();
     }
 
     private DomainEvent capturePublished() {

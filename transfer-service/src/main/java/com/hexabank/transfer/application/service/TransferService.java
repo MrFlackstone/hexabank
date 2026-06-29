@@ -13,6 +13,7 @@ import com.hexabank.transfer.application.port.out.EventPublisherPort;
 import com.hexabank.transfer.application.port.out.LoadTransferPort;
 import com.hexabank.transfer.application.port.out.ProcessedEventPort;
 import com.hexabank.transfer.application.port.out.SaveTransferPort;
+import com.hexabank.transfer.application.port.out.TransferMetricsPort;
 import com.hexabank.transfer.domain.Transfer;
 import com.hexabank.transfer.domain.TransferId;
 import com.hexabank.transfer.domain.exception.TransferNotFoundException;
@@ -34,15 +35,18 @@ public class TransferService implements RequestTransferUseCase, GetTransferUseCa
     private final SaveTransferPort saveTransferPort;
     private final EventPublisherPort eventPublisher;
     private final ProcessedEventPort processedEvents;
+    private final TransferMetricsPort metrics;
 
     public TransferService(LoadTransferPort loadTransferPort,
                            SaveTransferPort saveTransferPort,
                            EventPublisherPort eventPublisher,
-                           ProcessedEventPort processedEvents) {
+                           ProcessedEventPort processedEvents,
+                           TransferMetricsPort metrics) {
         this.loadTransferPort = loadTransferPort;
         this.saveTransferPort = saveTransferPort;
         this.eventPublisher = eventPublisher;
         this.processedEvents = processedEvents;
+        this.metrics = metrics;
     }
 
     @Override
@@ -85,6 +89,7 @@ public class TransferService implements RequestTransferUseCase, GetTransferUseCa
         transfer.markDebitFailed();
         saveTransferPort.save(transfer);
         processedEvents.markProcessed(eventId);
+        metrics.transferFailed();
         eventPublisher.publish(new TransferFailed(UUID.randomUUID(), transferId, reason));
     }
 
@@ -98,6 +103,7 @@ public class TransferService implements RequestTransferUseCase, GetTransferUseCa
         transfer.markCompleted();
         saveTransferPort.save(transfer);
         processedEvents.markProcessed(eventId);
+        metrics.transferCompleted();
         eventPublisher.publish(new TransferCompleted(UUID.randomUUID(), transferId));
     }
 
@@ -125,6 +131,7 @@ public class TransferService implements RequestTransferUseCase, GetTransferUseCa
         transfer.markRefunded();
         saveTransferPort.save(transfer);
         processedEvents.markProcessed(eventId);
+        metrics.transferFailed();
         eventPublisher.publish(new TransferFailed(
                 UUID.randomUUID(), transferId, "Transferencia revertida: el crédito al destino falló"));
     }
