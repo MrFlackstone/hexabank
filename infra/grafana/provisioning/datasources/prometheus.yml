@@ -1,0 +1,11 @@
+# Provisioning del datasource: Grafana lo crea al arrancar, sin configuracion manual por UI.
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    uid: prometheus            # uid fijo para que el dashboard provisionado lo referencie
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090     # nombre de servicio en la red de compose
+    isDefault: true
+    editable: true

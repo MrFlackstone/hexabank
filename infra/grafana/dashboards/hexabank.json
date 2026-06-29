@@ -1,0 +1,89 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "liveNow": false,
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "tags": ["hexabank", "minsait"],
+  "templating": { "list": [] },
+  "time": { "from": "now-15m", "to": "now" },
+  "timepicker": {},
+  "timezone": "",
+  "title": "HexaBank — Observabilidad",
+  "uid": "hexabank-overview",
+  "version": 1,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Throughput de transferencias (saga)",
+      "description": "Tasa por segundo de transferencias COMPLETED vs FAILED. Métricas de negocio publicadas por transfer-service vía TransferMetricsPort.",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "fillOpacity": 10 } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(rate(hexabank_transfers_completed_total[1m]))",
+          "legendFormat": "completed/s"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(rate(hexabank_transfers_failed_total[1m]))",
+          "legendFormat": "failed/s"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Consumer lag de Kafka",
+      "description": "Registros pendientes de consumir por servicio. En una saga at-least-once, un lag creciente avisa de que un consumidor no sigue el ritmo de los eventos.",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 0 },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10 } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "max by (application) (kafka_consumer_fetch_manager_records_lag_max)",
+          "legendFormat": "{{application}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Latencia HTTP p95 (http_server_requests)",
+      "description": "Percentil 95 de latencia de las peticiones REST por servicio, calculado a partir de los histogramas de Micrometer.",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 9 },
+      "fieldConfig": {
+        "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 10 } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "histogram_quantile(0.95, sum by (le, application) (rate(http_server_requests_seconds_bucket[1m])))",
+          "legendFormat": "p95 {{application}}"
+        }
+      ]
+    }
+  ]
+}

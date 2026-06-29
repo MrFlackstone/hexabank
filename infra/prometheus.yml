@@ -1,0 +1,15 @@
+# Prometheus — configuracion de scraping (modelo pull).
+# Prometheus raspa periodicamente /actuator/prometheus de cada servicio (dentro de la red de
+# compose los hosts son los nombres de servicio). Actuator + Micrometer exponen ahi las metricas.
+global:
+  scrape_interval: 5s          # cada 5s para que la demo refresque rapido en Grafana
+  scrape_timeout: 4s
+
+scrape_configs:
+  - job_name: hexabank-services
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+          - account-service:8081
+          - transfer-service:8082
+          - ledger-service:8083
