@@ -187,6 +187,23 @@ services:
       - hexabank-net
     restart: unless-stopped
 
+  # --- Frontend React servido por Nginx, que ademas hace de reverse-proxy /api hacia los
+  # microservicios (origen unico, sin CORS). Punto de entrada de la demo: http://localhost:3000 ---
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - account-service
+      - transfer-service
+      - ledger-service
+    networks:
+      - hexabank-net
+    restart: unless-stopped
+
 networks:
   hexabank-net:
     driver: bridge
