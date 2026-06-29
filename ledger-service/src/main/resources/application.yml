@@ -21,3 +21,24 @@ spring:
 
 server:
   port: 8083
+
+# Observabilidad: Actuator expone los endpoints de gestion; Micrometer publica las metricas en
+# formato Prometheus en /actuator/prometheus (modelo pull: Prometheus las raspa cada pocos segundos).
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+  metrics:
+    tags:
+      application: ${spring.application.name}   # etiqueta comun para filtrar por servicio en Grafana
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true              # habilita histogramas -> latencia/quantiles
+  prometheus:
+    metrics:
+      export:
+        enabled: true

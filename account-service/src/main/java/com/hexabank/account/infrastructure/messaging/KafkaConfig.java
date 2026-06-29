@@ -1,6 +1,7 @@
 package com.hexabank.account.infrastructure.messaging;
 
 import com.hexabank.shared.events.DomainEvent;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -13,6 +14,8 @@ import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.core.MicrometerConsumerListener;
+import org.springframework.kafka.core.MicrometerProducerListener;
 import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
@@ -48,14 +51,18 @@ public class KafkaConfig {
     }
 
     @Bean
-    ProducerFactory<String, Object> producerFactory() {
+    ProducerFactory<String, Object> producerFactory(MeterRegistry meterRegistry) {
         Map<String, Object> props = new HashMap<>();
         props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
         props.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true);
         props.put(ProducerConfig.ACKS_CONFIG, "all");
-        return new DefaultKafkaProducerFactory<>(props);
+        DefaultKafkaProducerFactory<String, Object> factory = new DefaultKafkaProducerFactory<>(props);
+        // Expone las métricas del cliente productor de Kafka en Micrometer (la factoría es explícita,
+        // así que Spring Boot no las cablea solo).
+        factory.addListener(new MicrometerProducerListener<>(meterRegistry));
+        return factory;
     }
 
     @Bean
@@ -64,7 +71,7 @@ public class KafkaConfig {
     }
 
     @Bean
-    ConsumerFactory<String, DomainEvent> consumerFactory() {
+    ConsumerFactory<String, DomainEvent> consumerFactory(MeterRegistry meterRegistry) {
         Map<String, Object> props = new HashMap<>();
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
@@ -75,7 +82,10 @@ public class KafkaConfig {
         props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class);
         props.put(JsonDeserializer.TRUSTED_PACKAGES, TRUSTED_PACKAGE);
         props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, DomainEvent.class.getName());
-        return new DefaultKafkaConsumerFactory<>(props);
+        DefaultKafkaConsumerFactory<String, DomainEvent> factory = new DefaultKafkaConsumerFactory<>(props);
+        // Expone las métricas del cliente consumidor (incl. records-lag) en Micrometer/Prometheus.
+        factory.addListener(new MicrometerConsumerListener<>(meterRegistry));
+        return factory;
     }
 
     @Bean
