@@ -3,3 +3,8 @@ dist
 dist-ssr
 *.local
 .vite
+
+# Artefactos de compilacion de TypeScript (tsc -b)
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
