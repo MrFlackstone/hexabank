@@ -9,7 +9,7 @@ como showcase técnico de arquitectura hexagonal, comunicación event-driven y c
 > Toda la demo se levanta con un único `docker compose up --build -d` y se opera desde el navegador en
 > **http://localhost:3000**.
 
-## Qué demuestra
+## Características clave
 
 - **Arquitectura hexagonal (puertos y adaptadores)** en cada servicio: el dominio es Java puro (sin
   Spring/JPA/Kafka); la infraestructura implementa los puertos. La observabilidad entra como un
