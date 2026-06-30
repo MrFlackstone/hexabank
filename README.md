@@ -1,5 +1,7 @@
 # HexaBank
 
+[![CI](https://github.com/MrFlackstone/hexabank/actions/workflows/ci.yml/badge.svg)](https://github.com/MrFlackstone/hexabank/actions/workflows/ci.yml)
+
 Demo de **microservicios hexagonales** en Java 21 + Spring Boot 3 que ejecutan una **saga de
 transferencias bancarias** sobre Apache Kafka, con **idempotencia**, **compensación** y **Dead Letter
 Topic**. Incluye un **lado de lectura CQRS** (libro mayor + proyección con actualizaciones en vivo por
@@ -221,7 +223,34 @@ Cada servicio sigue la misma estructura hexagonal:
 Los tests unitarios (`*Test`) corren sin contenedores; los de integración (`*IT`) levantan Kafka y
 Postgres con Testcontainers.
 
+## Integración continua
+
+Cada push y cada Pull Request disparan el workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
+en GitHub Actions (dos jobs en paralelo):
+
+- **backend** — `./mvnw -B verify` sobre `ubuntu-latest`: tests unitarios + integración con
+  **Testcontainers** (Kafka + Postgres reales) + e2e. El runner trae Docker, así que los `*IT`
+  corren igual que en local, sin configurar servicios externos.
+- **frontend** — `npm ci && npm run build` (type-check con `tsc` + bundle con Vite).
+
+El badge de arriba refleja el estado de la rama `main`.
+
+## Mapeo requisito → implementación
+
+Cómo cada requisito de la oferta se materializa en el código:
+
+| Requisito | Dónde se demuestra |
+| --- | --- |
+| **Java + Spring Boot** | 3 servicios en Java 21 / Spring Boot 3.5 (`account-service`, `transfer-service`, `ledger-service`) |
+| **APIs REST** | Controllers en `infrastructure/rest` con DTOs + Bean Validation; errores como `ProblemDetail` (`RestExceptionHandler`) |
+| **Arquitectura hexagonal + SOLID** | `domain`/`application` sin framework; puertos segregados en `port/in` y `port/out`; adaptadores en `infrastructure`; wiring explícito en `config/BeanConfiguration` (inversión de dependencias real) |
+| **Kafka / event-driven** | Saga de orquestación sobre topics particionados (`account-commands`/`account-events`/`transfer-events`); `@KafkaListener` + `KafkaTemplate`; máquina de estados con **compensación** (`RefundRequested`) |
+| **Alta concurrencia** | Bloqueo optimista `@Version` + `saveAndFlush`; consumidores **idempotentes** (`processed_events` por `eventId`) frente al at-least-once; orden por clave de partición; servicios stateless |
+| **Robustez del consumidor** | `DefaultErrorHandler` + `DeadLetterPublishingRecoverer` con backoff → `*.DLT` para mensajes irrecuperables |
+| **CI + revisión de código** | GitHub Actions (`ci.yml`) en cada push/PR; el trabajo entra por Pull Requests |
+| **Testing** | JUnit 5 / Mockito / AssertJ (dominio) + **Testcontainers** Kafka+Postgres (integración) + Awaitility (saga e2e) |
+| **Observabilidad** | Actuator + Micrometer → Prometheus (`/actuator/prometheus`); métrica de negocio vía puerto `TransferMetricsPort`; dashboard de Grafana provisionado |
+
 ## Roadmap
 
-- **Integración continua** — GitHub Actions (build + tests con Testcontainers en cada push).
 - **Autenticación / autorización** — JWT resource-server por servicio.
