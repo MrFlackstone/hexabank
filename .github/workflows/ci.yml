@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancela ejecuciones en curso de la misma rama/PR cuando llega un push nuevo.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend (mvnw verify)
+    runs-on: ubuntu-latest   # trae Docker preinstalado -> Testcontainers (Kafka + Postgres) sin servicios extra
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      # El Maven Wrapper se versiona en modo 100644 (no ejecutable); el runner es Linux.
+      - name: Make mvnw executable
+        run: chmod +x ./mvnw
+
+      # Reactor completo: tests unitarios (Surefire) + integracion con Testcontainers (Failsafe) + e2e.
+      - name: Build and test
+        run: ./mvnw -B verify
+
+  frontend:
+    name: Frontend (build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check and build
+        run: npm run build
