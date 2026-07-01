@@ -2,6 +2,7 @@ package com.hexabank.transfer.infrastructure.rest;
 
 import com.hexabank.shared.events.DebitRequested;
 import com.hexabank.shared.events.DomainEvent;
+import com.hexabank.transfer.config.TestSecurityConfig;
 import com.hexabank.transfer.infrastructure.messaging.KafkaTopics;
 import com.hexabank.transfer.infrastructure.rest.dto.CreateTransferRequest;
 import com.hexabank.transfer.infrastructure.rest.dto.TransferResponse;
@@ -17,6 +18,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
@@ -45,6 +48,8 @@ import static org.awaitility.Awaitility.await;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Testcontainers
+@ActiveProfiles("test")            // desactiva la SecurityConfig de produccion (@Profile("!test"))
+@Import(TestSecurityConfig.class)  // ...y la sustituye por seguridad permisiva (este IT prueba Kafka)
 class TransferControllerIT {
 
     @Container

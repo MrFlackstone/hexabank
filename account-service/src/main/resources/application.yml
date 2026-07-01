@@ -18,6 +18,13 @@ spring:
     bootstrap-servers: localhost:29092
     consumer:
       group-id: account-service
+  # Valida los Bearer JWT emitidos por Keycloak. issuer-uri = URL interna de la red
+  # Docker; en arranque local sin Docker, sobreescribe por env/-D (p. ej. http://localhost:8180/...).
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://keycloak:8080/realms/hexabank
 
 server:
   port: 8081
