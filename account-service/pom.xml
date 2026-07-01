@@ -121,6 +121,14 @@
             <artifactId>awaitility</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- Contenedor Keycloak para el IT de seguridad. No esta en el BOM de Spring: version
+             explicita. Levanta un Keycloak real, importa el realm y permite pedir tokens de verdad. -->
+        <dependency>
+            <groupId>com.github.dasniko</groupId>
+            <artifactId>testcontainers-keycloak</artifactId>
+            <version>3.7.0</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
