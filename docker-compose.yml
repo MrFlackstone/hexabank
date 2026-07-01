@@ -145,6 +145,8 @@ services:
         condition: service_healthy
       postgres-account:
         condition: service_healthy
+      keycloak:
+        condition: service_started
     networks:
       - hexabank-net
     restart: unless-stopped
@@ -164,6 +166,8 @@ services:
         condition: service_healthy
       postgres-transfer:
         condition: service_healthy
+      keycloak:
+        condition: service_started
     networks:
       - hexabank-net
     restart: unless-stopped
@@ -182,6 +186,61 @@ services:
       kafka:
         condition: service_healthy
       postgres-ledger:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+    networks:
+      - hexabank-net
+    restart: unless-stopped
+
+  # --- Postgres dedicado de Keycloak. El IdP persiste realms/usuarios/clientes aqui, de
+  # modo que el estado sobrevive a reinicios (modo produccion, no memoria efimera). ---
+  postgres-keycloak:
+    image: postgres:16-alpine
+    container_name: postgres-keycloak
+    ports:
+      - "5445:5432"
+    environment:
+      POSTGRES_USER: hexabank
+      POSTGRES_PASSWORD: hexabank
+      POSTGRES_DB: keycloakdb
+    volumes:
+      - postgres-keycloak-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hexabank -d keycloakdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - hexabank-net
+    restart: unless-stopped
+
+  # --- Keycloak como Identity Provider OIDC. Modo produccion ('start') con Postgres
+  # dedicado; importa el realm 'hexabank' (realm-as-code) en el arranque. Emite los access token (JWT
+  # Bearer) que los 3 servicios validan como OAuth2 Resource Server. KC_HTTP_ENABLED + HOSTNAME_STRICT
+  # =false permiten HTTP sin TLS dentro de la red interna (una demo local; en produccion real: TLS +
+  # hostname fijo). Consola admin: http://localhost:8180 (admin/admin). ---
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    container_name: keycloak
+    command: ["start", "--import-realm"]
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres-keycloak:5432/keycloakdb
+      KC_DB_USERNAME: hexabank
+      KC_DB_PASSWORD: hexabank
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME_STRICT: "false"
+      KC_HEALTH_ENABLED: "true"
+    ports:
+      - "8180:8080"
+    volumes:
+      - ./infra/keycloak/realm-hexabank.json:/opt/keycloak/data/import/realm-hexabank.json:ro
+    depends_on:
+      postgres-keycloak:
         condition: service_healthy
     networks:
       - hexabank-net
@@ -251,4 +310,5 @@ volumes:
   postgres-account-data:
   postgres-transfer-data:
   postgres-ledger-data:
+  postgres-keycloak-data:
   grafana-data:
