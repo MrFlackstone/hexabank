@@ -5,6 +5,10 @@
   "sslRequired": "none",
   "registrationAllowed": false,
   "accessTokenLifespan": 300,
+  "revokeRefreshToken": true,
+  "refreshTokenMaxReuse": 0,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
   "roles": {
     "realm": [
       { "name": "USER", "description": "Cliente: solo puede operar sobre sus propias cuentas." },
@@ -50,6 +54,18 @@
       "email": "alice@hexabank.local",
       "credentials": [
         { "type": "password", "value": "alice", "temporary": false }
+      ],
+      "realmRoles": ["USER"]
+    },
+    {
+      "username": "bob",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Bob",
+      "lastName": "Cliente",
+      "email": "bob@hexabank.local",
+      "credentials": [
+        { "type": "password", "value": "bob", "temporary": false }
       ],
       "realmRoles": ["USER"]
     },
