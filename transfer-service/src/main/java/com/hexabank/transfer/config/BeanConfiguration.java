@@ -1,10 +1,12 @@
 package com.hexabank.transfer.config;
 
+import com.hexabank.transfer.application.port.out.AccountOwnershipPort;
 import com.hexabank.transfer.application.port.out.EventPublisherPort;
 import com.hexabank.transfer.application.port.out.LoadTransferPort;
 import com.hexabank.transfer.application.port.out.ProcessedEventPort;
 import com.hexabank.transfer.application.port.out.SaveTransferPort;
 import com.hexabank.transfer.application.port.out.TransferMetricsPort;
+import com.hexabank.transfer.application.service.AccountOwnershipService;
 import com.hexabank.transfer.application.service.TransferService;
 import com.hexabank.transfer.infrastructure.metrics.MicrometerTransferMetricsAdapter;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -26,6 +28,13 @@ public class BeanConfiguration {
                                     TransferMetricsPort transferMetricsPort) {
         return new TransferService(loadTransferPort, saveTransferPort, eventPublisherPort,
                 processedEventPort, transferMetricsPort);
+    }
+
+    /** Proyección local de propietarios de cuenta (consumida de account-events). */
+    @Bean
+    AccountOwnershipService accountOwnershipService(AccountOwnershipPort accountOwnershipPort,
+                                                    ProcessedEventPort processedEventPort) {
+        return new AccountOwnershipService(accountOwnershipPort, processedEventPort);
     }
 
     /**

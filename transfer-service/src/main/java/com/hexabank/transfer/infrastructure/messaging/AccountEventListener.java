@@ -1,11 +1,13 @@
 package com.hexabank.transfer.infrastructure.messaging;
 
+import com.hexabank.shared.events.AccountOpened;
 import com.hexabank.shared.events.CreditFailed;
 import com.hexabank.shared.events.DebitFailed;
 import com.hexabank.shared.events.DomainEvent;
 import com.hexabank.shared.events.MoneyCredited;
 import com.hexabank.shared.events.MoneyDebited;
 import com.hexabank.shared.events.MoneyRefunded;
+import com.hexabank.transfer.application.port.in.AccountProjectionUseCase;
 import com.hexabank.transfer.application.port.in.TransferSagaUseCase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,9 +24,11 @@ public class AccountEventListener {
     private static final Logger log = LoggerFactory.getLogger(AccountEventListener.class);
 
     private final TransferSagaUseCase transferSaga;
+    private final AccountProjectionUseCase accountProjection;
 
-    public AccountEventListener(TransferSagaUseCase transferSaga) {
+    public AccountEventListener(TransferSagaUseCase transferSaga, AccountProjectionUseCase accountProjection) {
         this.transferSaga = transferSaga;
+        this.accountProjection = accountProjection;
     }
 
     @KafkaListener(topics = KafkaTopics.ACCOUNT_EVENTS, containerFactory = "kafkaListenerContainerFactory")
@@ -35,6 +39,7 @@ public class AccountEventListener {
             case MoneyCredited e -> transferSaga.onMoneyCredited(e.eventId(), e.transferId());
             case CreditFailed e -> transferSaga.onCreditFailed(e.eventId(), e.transferId(), e.reason());
             case MoneyRefunded e -> transferSaga.onMoneyRefunded(e.eventId(), e.transferId());
+            case AccountOpened e -> accountProjection.onAccountOpened(e.eventId(), e.accountId(), e.ownerId());
             default -> log.warn("Evento ignorado en account-events: {}", event.getClass().getSimpleName());
         }
     }
