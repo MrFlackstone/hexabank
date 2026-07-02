@@ -8,12 +8,17 @@ import com.hexabank.shared.events.TransferCompleted;
 import com.hexabank.shared.events.TransferFailed;
 import com.hexabank.transfer.application.port.in.CallerContext;
 import com.hexabank.transfer.application.port.in.RequestTransferCommand;
+import com.hexabank.transfer.application.port.in.PageResult;
+import com.hexabank.transfer.application.port.in.TransferSearchQuery;
+import com.hexabank.transfer.application.port.in.TransferSort;
 import com.hexabank.transfer.application.port.out.AccountOwnershipPort;
 import com.hexabank.transfer.application.port.out.EventPublisherPort;
 import com.hexabank.transfer.application.port.out.LoadTransferPort;
 import com.hexabank.transfer.application.port.out.ProcessedEventPort;
 import com.hexabank.transfer.application.port.out.SaveTransferPort;
+import com.hexabank.transfer.application.port.out.SearchTransfersPort;
 import com.hexabank.transfer.application.port.out.TransferMetricsPort;
+import com.hexabank.transfer.application.port.out.TransferSearchCriteria;
 import com.hexabank.transfer.domain.Transfer;
 import com.hexabank.transfer.domain.TransferStatus;
 import com.hexabank.transfer.domain.exception.AccountNotFoundException;
@@ -56,6 +61,8 @@ class TransferServiceTest {
     TransferMetricsPort metrics;
     @Mock
     AccountOwnershipPort accountOwnership;
+    @Mock
+    SearchTransfersPort searchTransfersPort;
 
     TransferService service;
 
@@ -67,7 +74,7 @@ class TransferServiceTest {
     @BeforeEach
     void setUp() {
         service = new TransferService(loadTransferPort, saveTransferPort, eventPublisher, processedEvents,
-                metrics, accountOwnership);
+                metrics, accountOwnership, searchTransfersPort);
     }
 
     @Test
@@ -129,6 +136,50 @@ class TransferServiceTest {
         assertThat(service.getTransfer(transfer.id(), CallerContext.staff("staff-sub"))).isEqualTo(transfer);
         assertThatThrownBy(() -> service.getTransfer(transfer.id(), CallerContext.user("carol-sub")))
                 .isInstanceOf(TransferNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("searchTransfers de un USER restringe la consulta a sus cuentas")
+    void searchRestrictsVisibilityToOwnedAccounts() {
+        when(accountOwnership.accountsOwnedBy("alice-sub")).thenReturn(java.util.Set.of(source));
+        when(searchTransfersPort.search(any(TransferSearchCriteria.class)))
+                .thenReturn(PageResult.empty(0, 20));
+
+        service.searchTransfers(defaultQuery(), alice);
+
+        ArgumentCaptor<TransferSearchCriteria> captor = ArgumentCaptor.forClass(TransferSearchCriteria.class);
+        verify(searchTransfersPort).search(captor.capture());
+        assertThat(captor.getValue().visibleAccountIds()).containsExactly(source);
+    }
+
+    @Test
+    @DisplayName("searchTransfers de un USER sin cuentas devuelve página vacía sin consultar la BD")
+    void searchWithoutOwnedAccountsShortCircuits() {
+        when(accountOwnership.accountsOwnedBy("alice-sub")).thenReturn(java.util.Set.of());
+
+        PageResult<Transfer> result = service.searchTransfers(defaultQuery(), alice);
+
+        assertThat(result.content()).isEmpty();
+        assertThat(result.totalElements()).isZero();
+        verifyNoInteractions(searchTransfersPort);
+    }
+
+    @Test
+    @DisplayName("searchTransfers de STAFF no aplica filtro de visibilidad")
+    void searchAsStaffSeesEverything() {
+        when(searchTransfersPort.search(any(TransferSearchCriteria.class)))
+                .thenReturn(PageResult.empty(0, 20));
+
+        service.searchTransfers(defaultQuery(), CallerContext.staff("staff-sub"));
+
+        ArgumentCaptor<TransferSearchCriteria> captor = ArgumentCaptor.forClass(TransferSearchCriteria.class);
+        verify(searchTransfersPort).search(captor.capture());
+        assertThat(captor.getValue().visibleAccountIds()).isNull();
+        verifyNoInteractions(accountOwnership);
+    }
+
+    private TransferSearchQuery defaultQuery() {
+        return new TransferSearchQuery(null, null, null, 0, 20, TransferSort.CREATED_AT, false);
     }
 
     @Test

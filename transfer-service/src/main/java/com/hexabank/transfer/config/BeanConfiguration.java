@@ -5,6 +5,7 @@ import com.hexabank.transfer.application.port.out.EventPublisherPort;
 import com.hexabank.transfer.application.port.out.LoadTransferPort;
 import com.hexabank.transfer.application.port.out.ProcessedEventPort;
 import com.hexabank.transfer.application.port.out.SaveTransferPort;
+import com.hexabank.transfer.application.port.out.SearchTransfersPort;
 import com.hexabank.transfer.application.port.out.TransferMetricsPort;
 import com.hexabank.transfer.application.service.AccountOwnershipService;
 import com.hexabank.transfer.application.service.TransferService;
@@ -26,9 +27,10 @@ public class BeanConfiguration {
                                     EventPublisherPort eventPublisherPort,
                                     ProcessedEventPort processedEventPort,
                                     TransferMetricsPort transferMetricsPort,
-                                    AccountOwnershipPort accountOwnershipPort) {
+                                    AccountOwnershipPort accountOwnershipPort,
+                                    SearchTransfersPort searchTransfersPort) {
         return new TransferService(loadTransferPort, saveTransferPort, eventPublisherPort,
-                processedEventPort, transferMetricsPort, accountOwnershipPort);
+                processedEventPort, transferMetricsPort, accountOwnershipPort, searchTransfersPort);
     }
 
     /** Proyección local de propietarios de cuenta (consumida de account-events). */

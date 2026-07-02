@@ -7,21 +7,27 @@ import com.hexabank.shared.events.TransferCompleted;
 import com.hexabank.shared.events.TransferFailed;
 import com.hexabank.transfer.application.port.in.CallerContext;
 import com.hexabank.transfer.application.port.in.GetTransferUseCase;
+import com.hexabank.transfer.application.port.in.PageResult;
 import com.hexabank.transfer.application.port.in.RequestTransferCommand;
 import com.hexabank.transfer.application.port.in.RequestTransferUseCase;
+import com.hexabank.transfer.application.port.in.SearchTransfersUseCase;
 import com.hexabank.transfer.application.port.in.TransferSagaUseCase;
+import com.hexabank.transfer.application.port.in.TransferSearchQuery;
 import com.hexabank.transfer.application.port.out.AccountOwnershipPort;
 import com.hexabank.transfer.application.port.out.EventPublisherPort;
 import com.hexabank.transfer.application.port.out.LoadTransferPort;
 import com.hexabank.transfer.application.port.out.ProcessedEventPort;
 import com.hexabank.transfer.application.port.out.SaveTransferPort;
+import com.hexabank.transfer.application.port.out.SearchTransfersPort;
 import com.hexabank.transfer.application.port.out.TransferMetricsPort;
+import com.hexabank.transfer.application.port.out.TransferSearchCriteria;
 import com.hexabank.transfer.domain.Transfer;
 import com.hexabank.transfer.domain.TransferId;
 import com.hexabank.transfer.domain.exception.AccountNotFoundException;
 import com.hexabank.transfer.domain.exception.TransferNotFoundException;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -32,7 +38,8 @@ import java.util.UUID;
  * <p>Las reacciones de la saga son idempotentes (ignoran un {@code eventId} ya procesado) y se ejecutan
  * en una transacción que abarca el cambio de estado y el registro de idempotencia.</p>
  */
-public class TransferService implements RequestTransferUseCase, GetTransferUseCase, TransferSagaUseCase {
+public class TransferService implements RequestTransferUseCase, GetTransferUseCase,
+        SearchTransfersUseCase, TransferSagaUseCase {
 
     private final LoadTransferPort loadTransferPort;
     private final SaveTransferPort saveTransferPort;
@@ -40,19 +47,22 @@ public class TransferService implements RequestTransferUseCase, GetTransferUseCa
     private final ProcessedEventPort processedEvents;
     private final TransferMetricsPort metrics;
     private final AccountOwnershipPort accountOwnership;
+    private final SearchTransfersPort searchTransfersPort;
 
     public TransferService(LoadTransferPort loadTransferPort,
                            SaveTransferPort saveTransferPort,
                            EventPublisherPort eventPublisher,
                            ProcessedEventPort processedEvents,
                            TransferMetricsPort metrics,
-                           AccountOwnershipPort accountOwnership) {
+                           AccountOwnershipPort accountOwnership,
+                           SearchTransfersPort searchTransfersPort) {
         this.loadTransferPort = loadTransferPort;
         this.saveTransferPort = saveTransferPort;
         this.eventPublisher = eventPublisher;
         this.processedEvents = processedEvents;
         this.metrics = metrics;
         this.accountOwnership = accountOwnership;
+        this.searchTransfersPort = searchTransfersPort;
     }
 
     @Override
@@ -76,6 +86,22 @@ public class TransferService implements RequestTransferUseCase, GetTransferUseCa
             throw new TransferNotFoundException(id);
         }
         return transfer;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResult<Transfer> searchTransfers(TransferSearchQuery query, CallerContext caller) {
+        Set<UUID> visibleAccounts = null;
+        if (!caller.staff()) {
+            visibleAccounts = accountOwnership.accountsOwnedBy(caller.subject());
+            if (visibleAccounts.isEmpty()) {
+                // Sin cuentas propias no hay nada visible: se evita la consulta.
+                return PageResult.empty(query.page(), query.size());
+            }
+        }
+        return searchTransfersPort.search(new TransferSearchCriteria(
+                query.status(), query.from(), query.to(), visibleAccounts,
+                query.page(), query.size(), query.sortBy(), query.ascending()));
     }
 
     /**

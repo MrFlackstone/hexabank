@@ -4,6 +4,7 @@ import com.hexabank.shared.events.AccountOpened;
 import com.hexabank.transfer.infrastructure.messaging.KafkaTopics;
 import com.hexabank.transfer.infrastructure.persistence.AccountOwnershipJpaRepository;
 import com.hexabank.transfer.infrastructure.rest.dto.CreateTransferRequest;
+import com.hexabank.transfer.infrastructure.rest.dto.PageResponse;
 import com.hexabank.transfer.infrastructure.rest.dto.TransferResponse;
 import dasniko.testcontainers.keycloak.KeycloakContainer;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -120,6 +121,53 @@ class TransferAuthorizationIT {
         assertThat(getTransfer(transferId, "alice").getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(getTransfer(transferId, "bob").getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(getTransfer(transferId, "staff").getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
+
+    @Test
+    @DisplayName("GET /transfers pagina en servidor y restringe la visibilidad a las cuentas del llamante")
+    void searchIsPaginatedAndOwnershipFiltered() {
+        ensureProjectionSeeded();
+        for (int i = 0; i < 3; i++) {
+            assertThat(postTransfer("alice", ALICE_ACCOUNT, BOB_ACCOUNT).getStatusCode())
+                    .isEqualTo(HttpStatus.CREATED);
+        }
+
+        ResponseEntity<PageResponse<TransferResponse>> page = searchTransfers("alice", "?size=2&sort=createdAt,desc");
+        assertThat(page.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(page.getBody()).isNotNull();
+        assertThat(page.getBody().content()).hasSizeLessThanOrEqualTo(2);
+        assertThat(page.getBody().totalElements()).isGreaterThanOrEqualTo(3);
+        assertThat(page.getBody().totalPages()).isGreaterThanOrEqualTo(2);
+        assertThat(page.getBody().content()).allSatisfy(transfer ->
+                assertThat(transfer.sourceAccountId().equals(ALICE_ACCOUNT)
+                        || transfer.destinationAccountId().equals(ALICE_ACCOUNT)).isTrue());
+
+        ResponseEntity<PageResponse<TransferResponse>> filtered = searchTransfers("alice", "?status=pending");
+        assertThat(filtered.getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
+
+    @Test
+    @DisplayName("GET /transfers valida la whitelist de sort y el tope de tamano (400)")
+    void searchRejectsInvalidSortAndOversizedPage() {
+        ensureProjectionSeeded();
+
+        assertThat(searchRaw("alice", "?sort=holder,asc").getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(searchRaw("alice", "?size=500").getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    private ResponseEntity<PageResponse<TransferResponse>> searchTransfers(String username, String queryString) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(tokenFor(username, username));
+        return restTemplate.exchange("/transfers" + queryString, HttpMethod.GET, new HttpEntity<>(headers),
+                new org.springframework.core.ParameterizedTypeReference<PageResponse<TransferResponse>>() {
+                });
+    }
+
+    private ResponseEntity<String> searchRaw(String username, String queryString) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(tokenFor(username, username));
+        return restTemplate.exchange("/transfers" + queryString, HttpMethod.GET,
+                new HttpEntity<>(headers), String.class);
     }
 
     /** Publica AccountOpened para alice y bob (una vez) y espera a que la proyección los materialice. */
