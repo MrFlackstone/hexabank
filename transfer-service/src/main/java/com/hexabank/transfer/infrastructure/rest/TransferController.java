@@ -10,6 +10,7 @@ import com.hexabank.transfer.infrastructure.rest.dto.TransferResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -38,15 +39,18 @@ public class TransferController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public TransferResponse create(@Valid @RequestBody CreateTransferRequest request) {
+    public TransferResponse create(@Valid @RequestBody CreateTransferRequest request,
+                                   Authentication authentication) {
         Transfer transfer = requestTransferUseCase.requestTransfer(new RequestTransferCommand(
-                request.sourceAccountId(), request.destinationAccountId(), request.amount()));
+                request.sourceAccountId(), request.destinationAccountId(), request.amount()),
+                CallerContexts.from(authentication));
         return TransferResponse.from(transfer);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<TransferResponse> getById(@PathVariable("id") String id) {
-        Transfer transfer = getTransferUseCase.getTransfer(TransferId.of(id));
+    public ResponseEntity<TransferResponse> getById(@PathVariable("id") String id,
+                                                    Authentication authentication) {
+        Transfer transfer = getTransferUseCase.getTransfer(TransferId.of(id), CallerContexts.from(authentication));
         return ResponseEntity.ok(TransferResponse.from(transfer));
     }
 }

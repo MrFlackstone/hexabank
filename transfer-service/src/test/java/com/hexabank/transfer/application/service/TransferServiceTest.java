@@ -6,7 +6,9 @@ import com.hexabank.shared.events.DomainEvent;
 import com.hexabank.shared.events.RefundRequested;
 import com.hexabank.shared.events.TransferCompleted;
 import com.hexabank.shared.events.TransferFailed;
+import com.hexabank.transfer.application.port.in.CallerContext;
 import com.hexabank.transfer.application.port.in.RequestTransferCommand;
+import com.hexabank.transfer.application.port.out.AccountOwnershipPort;
 import com.hexabank.transfer.application.port.out.EventPublisherPort;
 import com.hexabank.transfer.application.port.out.LoadTransferPort;
 import com.hexabank.transfer.application.port.out.ProcessedEventPort;
@@ -14,6 +16,8 @@ import com.hexabank.transfer.application.port.out.SaveTransferPort;
 import com.hexabank.transfer.application.port.out.TransferMetricsPort;
 import com.hexabank.transfer.domain.Transfer;
 import com.hexabank.transfer.domain.TransferStatus;
+import com.hexabank.transfer.domain.exception.AccountNotFoundException;
+import com.hexabank.transfer.domain.exception.TransferNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -27,6 +31,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -49,24 +54,29 @@ class TransferServiceTest {
     ProcessedEventPort processedEvents;
     @Mock
     TransferMetricsPort metrics;
+    @Mock
+    AccountOwnershipPort accountOwnership;
 
     TransferService service;
 
     private final UUID source = UUID.randomUUID();
     private final UUID destination = UUID.randomUUID();
     private final UUID eventId = UUID.randomUUID();
+    private final CallerContext alice = CallerContext.user("alice-sub");
 
     @BeforeEach
     void setUp() {
-        service = new TransferService(loadTransferPort, saveTransferPort, eventPublisher, processedEvents, metrics);
+        service = new TransferService(loadTransferPort, saveTransferPort, eventPublisher, processedEvents,
+                metrics, accountOwnership);
     }
 
     @Test
     @DisplayName("requestTransfer persiste PENDING y publica DebitRequested")
     void requestTransferPublishesDebitRequested() {
         when(saveTransferPort.save(any(Transfer.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(accountOwnership.ownerOf(source)).thenReturn(Optional.of("alice-sub"));
 
-        service.requestTransfer(new RequestTransferCommand(source, destination, new BigDecimal("50.00")));
+        service.requestTransfer(new RequestTransferCommand(source, destination, new BigDecimal("50.00")), alice);
 
         ArgumentCaptor<Transfer> savedCaptor = ArgumentCaptor.forClass(Transfer.class);
         verify(saveTransferPort).save(savedCaptor.capture());
@@ -76,6 +86,49 @@ class TransferServiceTest {
         assertThat(published).isInstanceOf(DebitRequested.class);
         assertThat(((DebitRequested) published).accountId()).isEqualTo(source);
         assertThat(((DebitRequested) published).amount()).isEqualByComparingTo("50.00");
+    }
+
+    @Test
+    @DisplayName("requestTransfer desde una cuenta ajena o desconocida lanza AccountNotFoundException (404)")
+    void requestTransferRejectsForeignSource() {
+        when(accountOwnership.ownerOf(source)).thenReturn(Optional.of("bob-sub"));
+
+        assertThatThrownBy(() -> service.requestTransfer(
+                new RequestTransferCommand(source, destination, new BigDecimal("50.00")), alice))
+                .isInstanceOf(AccountNotFoundException.class);
+
+        when(accountOwnership.ownerOf(source)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> service.requestTransfer(
+                new RequestTransferCommand(source, destination, new BigDecimal("50.00")), alice))
+                .isInstanceOf(AccountNotFoundException.class);
+
+        verifyNoInteractions(saveTransferPort, eventPublisher);
+    }
+
+    @Test
+    @DisplayName("requestTransfer con rol STAFF no exige propiedad de la cuenta origen")
+    void requestTransferAllowsStaffFromAnyAccount() {
+        when(saveTransferPort.save(any(Transfer.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.requestTransfer(new RequestTransferCommand(source, destination, new BigDecimal("50.00")),
+                CallerContext.staff("staff-sub"));
+
+        verify(saveTransferPort).save(any(Transfer.class));
+        verifyNoInteractions(accountOwnership);
+    }
+
+    @Test
+    @DisplayName("getTransfer es visible para el dueño del origen o del destino; para otros es 404")
+    void getTransferVisibleOnlyToInvolvedOwners() {
+        Transfer transfer = Transfer.request(source, destination, new BigDecimal("50.00"));
+        when(loadTransferPort.findById(transfer.id())).thenReturn(Optional.of(transfer));
+        when(accountOwnership.ownerOf(source)).thenReturn(Optional.of("bob-sub"));
+        when(accountOwnership.ownerOf(destination)).thenReturn(Optional.of("alice-sub"));
+
+        assertThat(service.getTransfer(transfer.id(), alice)).isEqualTo(transfer);
+        assertThat(service.getTransfer(transfer.id(), CallerContext.staff("staff-sub"))).isEqualTo(transfer);
+        assertThatThrownBy(() -> service.getTransfer(transfer.id(), CallerContext.user("carol-sub")))
+                .isInstanceOf(TransferNotFoundException.class);
     }
 
     @Test

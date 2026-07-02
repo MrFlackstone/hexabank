@@ -25,9 +25,10 @@ public class BeanConfiguration {
                                     SaveTransferPort saveTransferPort,
                                     EventPublisherPort eventPublisherPort,
                                     ProcessedEventPort processedEventPort,
-                                    TransferMetricsPort transferMetricsPort) {
+                                    TransferMetricsPort transferMetricsPort,
+                                    AccountOwnershipPort accountOwnershipPort) {
         return new TransferService(loadTransferPort, saveTransferPort, eventPublisherPort,
-                processedEventPort, transferMetricsPort);
+                processedEventPort, transferMetricsPort, accountOwnershipPort);
     }
 
     /** Proyección local de propietarios de cuenta (consumida de account-events). */

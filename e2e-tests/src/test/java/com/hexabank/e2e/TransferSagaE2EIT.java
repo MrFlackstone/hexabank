@@ -8,6 +8,7 @@ import com.hexabank.account.domain.Account;
 import com.hexabank.account.domain.Money;
 import com.hexabank.account.domain.OwnerId;
 import com.hexabank.transfer.TransferServiceApplication;
+import com.hexabank.transfer.application.port.in.CallerContext;
 import com.hexabank.transfer.application.port.in.GetTransferUseCase;
 import com.hexabank.transfer.application.port.in.RequestTransferCommand;
 import com.hexabank.transfer.application.port.in.RequestTransferUseCase;
@@ -104,13 +105,17 @@ class TransferSagaE2EIT {
     }
 
     private Transfer requestTransfer(Account from, Account to, String amount) {
+        // Caller STAFF: este E2E verifica la saga, no la autorizacion por propiedad (cubierta en los
+        // IT de transfer-service); evita ademas esperar a la proyeccion asincrona de ownership.
         return transferContext.getBean(RequestTransferUseCase.class)
                 .requestTransfer(new RequestTransferCommand(
-                        from.id().value(), to.id().value(), new BigDecimal(amount)));
+                        from.id().value(), to.id().value(), new BigDecimal(amount)),
+                        CallerContext.staff("e2e"));
     }
 
     private TransferStatus status(Transfer transfer) {
-        return transferContext.getBean(GetTransferUseCase.class).getTransfer(transfer.id()).status();
+        return transferContext.getBean(GetTransferUseCase.class)
+                .getTransfer(transfer.id(), CallerContext.staff("e2e")).status();
     }
 
     private BigDecimal balanceOf(Account account) {

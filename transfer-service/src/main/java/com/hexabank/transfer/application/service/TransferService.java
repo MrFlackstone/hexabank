@@ -5,10 +5,12 @@ import com.hexabank.shared.events.DebitRequested;
 import com.hexabank.shared.events.RefundRequested;
 import com.hexabank.shared.events.TransferCompleted;
 import com.hexabank.shared.events.TransferFailed;
+import com.hexabank.transfer.application.port.in.CallerContext;
 import com.hexabank.transfer.application.port.in.GetTransferUseCase;
 import com.hexabank.transfer.application.port.in.RequestTransferCommand;
 import com.hexabank.transfer.application.port.in.RequestTransferUseCase;
 import com.hexabank.transfer.application.port.in.TransferSagaUseCase;
+import com.hexabank.transfer.application.port.out.AccountOwnershipPort;
 import com.hexabank.transfer.application.port.out.EventPublisherPort;
 import com.hexabank.transfer.application.port.out.LoadTransferPort;
 import com.hexabank.transfer.application.port.out.ProcessedEventPort;
@@ -16,6 +18,7 @@ import com.hexabank.transfer.application.port.out.SaveTransferPort;
 import com.hexabank.transfer.application.port.out.TransferMetricsPort;
 import com.hexabank.transfer.domain.Transfer;
 import com.hexabank.transfer.domain.TransferId;
+import com.hexabank.transfer.domain.exception.AccountNotFoundException;
 import com.hexabank.transfer.domain.exception.TransferNotFoundException;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,22 +39,26 @@ public class TransferService implements RequestTransferUseCase, GetTransferUseCa
     private final EventPublisherPort eventPublisher;
     private final ProcessedEventPort processedEvents;
     private final TransferMetricsPort metrics;
+    private final AccountOwnershipPort accountOwnership;
 
     public TransferService(LoadTransferPort loadTransferPort,
                            SaveTransferPort saveTransferPort,
                            EventPublisherPort eventPublisher,
                            ProcessedEventPort processedEvents,
-                           TransferMetricsPort metrics) {
+                           TransferMetricsPort metrics,
+                           AccountOwnershipPort accountOwnership) {
         this.loadTransferPort = loadTransferPort;
         this.saveTransferPort = saveTransferPort;
         this.eventPublisher = eventPublisher;
         this.processedEvents = processedEvents;
         this.metrics = metrics;
+        this.accountOwnership = accountOwnership;
     }
 
     @Override
     @Transactional
-    public Transfer requestTransfer(RequestTransferCommand command) {
+    public Transfer requestTransfer(RequestTransferCommand command, CallerContext caller) {
+        requireSourceOwnedByCaller(command, caller);
         Transfer transfer = saveTransferPort.save(Transfer.request(
                 command.sourceAccountId(), command.destinationAccountId(), command.amount()));
         eventPublisher.publish(new DebitRequested(
@@ -61,8 +68,36 @@ public class TransferService implements RequestTransferUseCase, GetTransferUseCa
 
     @Override
     @Transactional(readOnly = true)
-    public Transfer getTransfer(TransferId id) {
-        return load(id);
+    public Transfer getTransfer(TransferId id, CallerContext caller) {
+        Transfer transfer = load(id);
+        // Visible para el dueño del origen o del destino (el receptor ve sus movimientos entrantes).
+        // La denegación es un 404 idéntico al no-existente: sin oráculo de existencia.
+        if (!caller.staff() && !isInvolved(transfer, caller.subject())) {
+            throw new TransferNotFoundException(id);
+        }
+        return transfer;
+    }
+
+    /**
+     * La cuenta origen debe pertenecer al llamante (es a quien se debita). Cuenta desconocida por la
+     * proyección o de otro usuario → mismo 404, para no revelar existencia. STAFF puede operar
+     * cualquier cuenta.
+     */
+    private void requireSourceOwnedByCaller(RequestTransferCommand command, CallerContext caller) {
+        if (caller.staff()) {
+            return;
+        }
+        boolean owned = accountOwnership.ownerOf(command.sourceAccountId())
+                .map(owner -> owner.equals(caller.subject()))
+                .orElse(false);
+        if (!owned) {
+            throw new AccountNotFoundException(command.sourceAccountId());
+        }
+    }
+
+    private boolean isInvolved(Transfer transfer, String subject) {
+        return accountOwnership.ownerOf(transfer.sourceAccountId()).map(subject::equals).orElse(false)
+                || accountOwnership.ownerOf(transfer.destinationAccountId()).map(subject::equals).orElse(false);
     }
 
     @Override

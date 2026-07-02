@@ -1,5 +1,6 @@
 package com.hexabank.transfer.infrastructure.rest;
 
+import com.hexabank.transfer.domain.exception.AccountNotFoundException;
 import com.hexabank.transfer.domain.exception.InvalidTransferStateException;
 import com.hexabank.transfer.domain.exception.TransferNotFoundException;
 import org.springframework.http.HttpStatus;
@@ -14,9 +15,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class RestExceptionHandler {
 
-    /** Transferencia inexistente → 404 Not Found. */
-    @ExceptionHandler(TransferNotFoundException.class)
-    public ProblemDetail handleNotFound(TransferNotFoundException ex) {
+    /** Transferencia o cuenta inexistente (o ajena al llamante) → 404 Not Found. */
+    @ExceptionHandler({TransferNotFoundException.class, AccountNotFoundException.class})
+    public ProblemDetail handleNotFound(RuntimeException ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
