@@ -8,5 +8,5 @@ import java.util.UUID;
  * {@code reason} describe la causa.
  */
 public record DebitFailed(UUID eventId, UUID transferId, UUID accountId, BigDecimal amount, String reason)
-        implements DomainEvent {
+        implements SagaEvent {
 }

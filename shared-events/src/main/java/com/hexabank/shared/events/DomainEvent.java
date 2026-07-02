@@ -9,17 +9,12 @@ import java.util.UUID;
  * permite el pattern matching exhaustivo de Java 21 en los consumidores. Este módulo es Java puro:
  * sin Spring, JPA ni Kafka.</p>
  *
- * <p>Todo evento expone {@link #eventId()} (identificador único del mensaje) y {@link #transferId()}
- * (identificador de la transferencia a la que pertenece).</p>
+ * <p>Todo evento expone {@link #eventId()} (identificador único del mensaje). Los eventos que
+ * participan en la saga de transferencia extienden {@link SagaEvent}, que añade el identificador
+ * de la transferencia.</p>
  */
-public sealed interface DomainEvent
-        permits DebitRequested, CreditRequested, RefundRequested,
-                MoneyDebited, DebitFailed, MoneyCredited, CreditFailed, MoneyRefunded,
-                TransferCompleted, TransferFailed {
+public sealed interface DomainEvent permits SagaEvent, AccountOpened {
 
     /** Identificador único del evento. */
     UUID eventId();
-
-    /** Identificador de la transferencia a la que pertenece el evento. */
-    UUID transferId();
 }
