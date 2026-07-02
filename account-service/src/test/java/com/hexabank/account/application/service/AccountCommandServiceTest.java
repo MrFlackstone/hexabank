@@ -8,6 +8,7 @@ import com.hexabank.account.application.port.out.SaveAccountPort;
 import com.hexabank.account.domain.Account;
 import com.hexabank.account.domain.AccountId;
 import com.hexabank.account.domain.Money;
+import com.hexabank.account.domain.OwnerId;
 import com.hexabank.shared.events.DebitFailed;
 import com.hexabank.shared.events.DomainEvent;
 import com.hexabank.shared.events.MoneyDebited;
@@ -99,7 +100,7 @@ class AccountCommandServiceTest {
     }
 
     private Account account(String balance) {
-        return new Account(new AccountId(accountId), "Diego", Money.of(balance), 0L);
+        return new Account(new AccountId(accountId), "Diego", OwnerId.of("diego-sub"), Money.of(balance), 0L);
     }
 
     private AccountCommand command(BigDecimal amount) {

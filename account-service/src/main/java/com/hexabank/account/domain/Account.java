@@ -17,20 +17,32 @@ public class Account {
 
     private final AccountId id;
     private final String holder;
+    /** Propietario ({@code sub} del creador); nulo en cuentas previas a la columna {@code owner_id}. */
+    private final OwnerId ownerId;
     private Money balance;
     private long version;
 
     /** Constructor de reconstrucción (lo usa el adaptador de persistencia al cargar de la BD). */
-    public Account(AccountId id, String holder, Money balance, long version) {
+    public Account(AccountId id, String holder, OwnerId ownerId, Money balance, long version) {
         this.id = Objects.requireNonNull(id, "id");
         this.holder = requireHolder(holder);
+        this.ownerId = ownerId;
         this.balance = Objects.requireNonNull(balance, "balance");
         this.version = version;
     }
 
-    /** Factoría de creación de una cuenta nueva con un saldo inicial. */
-    public static Account open(String holder, Money initialBalance) {
-        return new Account(AccountId.newId(), holder, initialBalance, 0L);
+    /** Factoría de creación de una cuenta nueva con un saldo inicial y su propietario. */
+    public static Account open(String holder, Money initialBalance, OwnerId ownerId) {
+        return new Account(AccountId.newId(), holder, Objects.requireNonNull(ownerId, "ownerId"),
+                initialBalance, 0L);
+    }
+
+    /**
+     * Indica si la cuenta pertenece al sujeto dado. Una cuenta sin propietario (dato anterior a la
+     * incorporación de {@code owner_id}) no pertenece a nadie: solo STAFF puede operarla.
+     */
+    public boolean isOwnedBy(String subject) {
+        return ownerId != null && ownerId.value().equals(subject);
     }
 
     /**
@@ -63,6 +75,11 @@ public class Account {
 
     public String holder() {
         return holder;
+    }
+
+    /** Propietario de la cuenta; nulo en cuentas anteriores a la columna {@code owner_id}. */
+    public OwnerId ownerId() {
+        return ownerId;
     }
 
     public Money balance() {

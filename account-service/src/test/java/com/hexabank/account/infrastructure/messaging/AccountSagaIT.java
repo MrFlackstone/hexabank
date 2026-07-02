@@ -3,6 +3,7 @@ package com.hexabank.account.infrastructure.messaging;
 import com.hexabank.account.domain.Account;
 import com.hexabank.account.domain.AccountId;
 import com.hexabank.account.domain.Money;
+import com.hexabank.account.domain.OwnerId;
 import com.hexabank.account.infrastructure.persistence.AccountPersistenceAdapter;
 import com.hexabank.account.infrastructure.persistence.ProcessedEventJpaRepository;
 import com.hexabank.shared.events.DebitRequested;
@@ -87,7 +88,7 @@ class AccountSagaIT {
     @Test
     @DisplayName("DebitRequested debita el saldo y publica MoneyDebited")
     void debitRequestedProducesMoneyDebited() {
-        UUID accountId = accounts.save(Account.open("Origen", Money.of("100.00"))).id().value();
+        UUID accountId = accounts.save(Account.open("Origen", Money.of("100.00"), OwnerId.of("origen-sub"))).id().value();
         List<DomainEvent> received = subscribeToAccountEvents();
 
         UUID eventId = UUID.randomUUID();
@@ -108,7 +109,7 @@ class AccountSagaIT {
     @Test
     @DisplayName("reenviar el mismo DebitRequested no debita dos veces (idempotencia)")
     void duplicateDebitRequestedIsIdempotent() {
-        UUID accountId = accounts.save(Account.open("Origen", Money.of("100.00"))).id().value();
+        UUID accountId = accounts.save(Account.open("Origen", Money.of("100.00"), OwnerId.of("origen-sub"))).id().value();
         UUID eventId = UUID.randomUUID();
         DebitRequested command =
                 new DebitRequested(eventId, UUID.randomUUID(), accountId, new BigDecimal("40.00"));

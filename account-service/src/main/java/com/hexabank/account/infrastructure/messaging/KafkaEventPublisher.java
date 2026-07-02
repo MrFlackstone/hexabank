@@ -1,6 +1,7 @@
 package com.hexabank.account.infrastructure.messaging;
 
 import com.hexabank.account.application.port.out.EventPublisherPort;
+import com.hexabank.shared.events.AccountOpened;
 import com.hexabank.shared.events.CreditFailed;
 import com.hexabank.shared.events.DebitFailed;
 import com.hexabank.shared.events.DomainEvent;
@@ -35,6 +36,7 @@ public class KafkaEventPublisher implements EventPublisherPort {
             case MoneyCredited e -> e.accountId().toString();
             case CreditFailed e -> e.accountId().toString();
             case MoneyRefunded e -> e.accountId().toString();
+            case AccountOpened e -> e.accountId().toString();
             default -> throw new IllegalArgumentException(
                     "account-service no produce este tipo de evento: " + event.getClass().getSimpleName());
         };

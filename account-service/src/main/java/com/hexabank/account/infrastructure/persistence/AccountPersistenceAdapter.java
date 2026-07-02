@@ -5,6 +5,7 @@ import com.hexabank.account.application.port.out.SaveAccountPort;
 import com.hexabank.account.domain.Account;
 import com.hexabank.account.domain.AccountId;
 import com.hexabank.account.domain.Money;
+import com.hexabank.account.domain.OwnerId;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;
@@ -39,6 +40,7 @@ public class AccountPersistenceAdapter implements LoadAccountPort, SaveAccountPo
         return new Account(
                 new AccountId(entity.getId()),
                 entity.getHolder(),
+                entity.getOwnerId() == null ? null : OwnerId.of(entity.getOwnerId()),
                 Money.of(entity.getBalance()),
                 entity.getVersion());
     }
@@ -47,6 +49,7 @@ public class AccountPersistenceAdapter implements LoadAccountPort, SaveAccountPo
         return new AccountJpaEntity(
                 account.id().value(),
                 account.holder(),
+                account.ownerId() == null ? null : account.ownerId().value(),
                 account.balance().amount(),
                 account.version());
     }

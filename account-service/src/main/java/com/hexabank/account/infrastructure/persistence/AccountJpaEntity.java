@@ -32,6 +32,10 @@ public class AccountJpaEntity {
     @Column(nullable = false)
     private String holder;
 
+    /** Claim {@code sub} del creador; nulo en filas anteriores a la columna. */
+    @Column(name = "owner_id", length = 64)
+    private String ownerId;
+
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal balance;
 
@@ -48,9 +52,10 @@ public class AccountJpaEntity {
     protected AccountJpaEntity() {
     }
 
-    public AccountJpaEntity(UUID id, String holder, BigDecimal balance, long version) {
+    public AccountJpaEntity(UUID id, String holder, String ownerId, BigDecimal balance, long version) {
         this.id = id;
         this.holder = holder;
+        this.ownerId = ownerId;
         this.balance = balance;
         this.version = version;
     }
@@ -61,6 +66,10 @@ public class AccountJpaEntity {
 
     public String getHolder() {
         return holder;
+    }
+
+    public String getOwnerId() {
+        return ownerId;
     }
 
     public BigDecimal getBalance() {

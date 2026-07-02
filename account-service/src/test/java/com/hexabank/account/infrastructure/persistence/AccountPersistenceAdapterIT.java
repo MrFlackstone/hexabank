@@ -3,6 +3,7 @@ package com.hexabank.account.infrastructure.persistence;
 import com.hexabank.account.domain.Account;
 import com.hexabank.account.domain.AccountId;
 import com.hexabank.account.domain.Money;
+import com.hexabank.account.domain.OwnerId;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,7 +45,7 @@ class AccountPersistenceAdapterIT {
     @Test
     @DisplayName("persiste una cuenta y la recupera por id")
     void persistsAndLoads() {
-        Account saved = adapter.save(Account.open("Diego", Money.of("100.00")));
+        Account saved = adapter.save(Account.open("Diego", Money.of("100.00"), OwnerId.of("diego-sub")));
 
         Optional<Account> loaded = adapter.findById(saved.id());
 
@@ -63,14 +64,14 @@ class AccountPersistenceAdapterIT {
     @DisplayName("bloqueo optimista: una escritura con versión obsoleta es rechazada (@Version)")
     void optimisticLockingRejectsStaleWrite() {
         // Estado inicial en BD: versión 0.
-        Account account = adapter.save(Account.open("Diego", Money.of("100.00")));
+        Account account = adapter.save(Account.open("Diego", Money.of("100.00"), OwnerId.of("diego-sub")));
         UUID id = account.id().value();
 
         // Primera escritura (versión 0 == BD) → éxito; la BD pasa a versión 1.
-        repository.saveAndFlush(new AccountJpaEntity(id, "Diego", new BigDecimal("90.00"), 0L));
+        repository.saveAndFlush(new AccountJpaEntity(id, "Diego", "diego-sub", new BigDecimal("90.00"), 0L));
 
         // Segunda escritura con la MISMA versión 0 (obsoleta) simula un update concurrente perdido.
-        AccountJpaEntity stale = new AccountJpaEntity(id, "Diego", new BigDecimal("80.00"), 0L);
+        AccountJpaEntity stale = new AccountJpaEntity(id, "Diego", "diego-sub", new BigDecimal("80.00"), 0L);
         assertThatThrownBy(() -> repository.saveAndFlush(stale))
                 .isInstanceOf(ObjectOptimisticLockingFailureException.class);
     }

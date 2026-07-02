@@ -17,8 +17,10 @@ import org.springframework.context.annotation.Configuration;
 public class BeanConfiguration {
 
     @Bean
-    AccountService accountService(LoadAccountPort loadAccountPort, SaveAccountPort saveAccountPort) {
-        return new AccountService(loadAccountPort, saveAccountPort);
+    AccountService accountService(LoadAccountPort loadAccountPort,
+                                  SaveAccountPort saveAccountPort,
+                                  EventPublisherPort eventPublisherPort) {
+        return new AccountService(loadAccountPort, saveAccountPort, eventPublisherPort);
     }
 
     /** Casos de uso de la saga (débito/crédito/reembolso). */

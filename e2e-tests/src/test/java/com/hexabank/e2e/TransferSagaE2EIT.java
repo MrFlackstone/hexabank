@@ -6,6 +6,7 @@ import com.hexabank.account.application.port.in.CreateAccountUseCase;
 import com.hexabank.account.application.port.out.LoadAccountPort;
 import com.hexabank.account.domain.Account;
 import com.hexabank.account.domain.Money;
+import com.hexabank.account.domain.OwnerId;
 import com.hexabank.transfer.TransferServiceApplication;
 import com.hexabank.transfer.application.port.in.GetTransferUseCase;
 import com.hexabank.transfer.application.port.in.RequestTransferCommand;
@@ -99,7 +100,7 @@ class TransferSagaE2EIT {
 
     private Account createAccount(String holder, String balance) {
         return accountContext.getBean(CreateAccountUseCase.class)
-                .createAccount(new CreateAccountCommand(holder, Money.of(balance)));
+                .createAccount(new CreateAccountCommand(holder, Money.of(balance), OwnerId.of("e2e-user")));
     }
 
     private Transfer requestTransfer(Account from, Account to, String amount) {

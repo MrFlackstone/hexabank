@@ -6,11 +6,13 @@ import com.hexabank.account.application.port.in.GetAccountUseCase;
 import com.hexabank.account.domain.Account;
 import com.hexabank.account.domain.AccountId;
 import com.hexabank.account.domain.Money;
+import com.hexabank.account.domain.OwnerId;
 import com.hexabank.account.infrastructure.rest.dto.AccountResponse;
 import com.hexabank.account.infrastructure.rest.dto.CreateAccountRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -40,9 +42,10 @@ public class AccountController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public AccountResponse create(@Valid @RequestBody CreateAccountRequest request) {
-        Account account = createAccountUseCase.createAccount(
-                new CreateAccountCommand(request.holder(), Money.of(request.initialBalance())));
+    public AccountResponse create(@Valid @RequestBody CreateAccountRequest request,
+                                  Authentication authentication) {
+        Account account = createAccountUseCase.createAccount(new CreateAccountCommand(
+                request.holder(), Money.of(request.initialBalance()), OwnerId.of(authentication.getName())));
         return AccountResponse.from(account);
     }
 
