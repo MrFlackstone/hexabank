@@ -1,5 +1,6 @@
 package com.hexabank.account.application.service;
 
+import com.hexabank.account.application.port.in.CallerContext;
 import com.hexabank.account.application.port.in.CreateAccountCommand;
 import com.hexabank.account.application.port.in.CreateAccountUseCase;
 import com.hexabank.account.application.port.in.GetAccountUseCase;
@@ -46,8 +47,13 @@ public class AccountService implements CreateAccountUseCase, GetAccountUseCase {
     }
 
     @Override
-    public Account getAccount(AccountId id) {
-        return loadAccountPort.findById(id)
+    public Account getAccount(AccountId id, CallerContext caller) {
+        Account account = loadAccountPort.findById(id)
                 .orElseThrow(() -> new AccountNotFoundException(id));
+        // Denegación indistinguible del no-existente (404): no se revela que la cuenta de otro existe.
+        if (!caller.staff() && !account.isOwnedBy(caller.subject())) {
+            throw new AccountNotFoundException(id);
+        }
+        return account;
     }
 }

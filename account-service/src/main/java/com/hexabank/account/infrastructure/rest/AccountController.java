@@ -50,8 +50,9 @@ public class AccountController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<AccountResponse> getById(@PathVariable("id") String id) {
-        Account account = getAccountUseCase.getAccount(AccountId.of(id));
+    public ResponseEntity<AccountResponse> getById(@PathVariable("id") String id,
+                                                   Authentication authentication) {
+        Account account = getAccountUseCase.getAccount(AccountId.of(id), CallerContexts.from(authentication));
         return ResponseEntity.ok(AccountResponse.from(account));
     }
 }

@@ -1,5 +1,8 @@
 package com.hexabank.account.infrastructure.rest;
 
+import com.hexabank.account.application.port.out.EventPublisherPort;
+import com.hexabank.account.infrastructure.persistence.AccountJpaEntity;
+import com.hexabank.account.infrastructure.persistence.AccountJpaRepository;
 import com.hexabank.account.infrastructure.rest.dto.AccountResponse;
 import com.hexabank.account.infrastructure.rest.dto.CreateAccountRequest;
 import dasniko.testcontainers.keycloak.KeycloakContainer;
@@ -9,8 +12,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -48,6 +54,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ImportAutoConfiguration(exclude = KafkaAutoConfiguration.class)
 class AccountSecurityIT {
 
+    /** Sin broker Kafka en este IT: la publicación de AccountOpened se sustituye por un no-op. */
+    @TestConfiguration
+    static class NoopEventPublisherConfig {
+        @Bean
+        @Primary
+        EventPublisherPort noopEventPublisher() {
+            return event -> {
+            };
+        }
+    }
+
     @Container
     @ServiceConnection
     static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
@@ -64,6 +81,9 @@ class AccountSecurityIT {
 
     @Autowired
     TestRestTemplate restTemplate;
+
+    @Autowired
+    AccountJpaRepository accountRepository;
 
     @Test
     @DisplayName("sin token -> 401 Unauthorized")
@@ -97,6 +117,47 @@ class AccountSecurityIT {
         assertThat(fetched.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(fetched.getBody()).isNotNull();
         assertThat(fetched.getBody().holder()).isEqualTo("Alice");
+    }
+
+    @Test
+    @DisplayName("autorizacion por propiedad: bob no ve la cuenta de alice (404), alice y staff si (200)")
+    void hidesForeignAccountsAsNotFound() {
+        String accountId = createAccountAs("alice", "Alice");
+
+        assertThat(getAccount(accountId, "bob").getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(getAccount(accountId, "alice").getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(getAccount(accountId, "staff").getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
+
+    @Test
+    @DisplayName("cuenta legada sin propietario: invisible para USER (404), visible para STAFF (200)")
+    void legacyAccountWithoutOwnerIsStaffOnly() {
+        UUID legacyId = UUID.randomUUID();
+        accountRepository.saveAndFlush(
+                new AccountJpaEntity(legacyId, "Legado", null, new BigDecimal("10.00"), 0L));
+
+        assertThat(getAccount(legacyId.toString(), "alice").getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(getAccount(legacyId.toString(), "staff").getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
+
+    /** Crea una cuenta autenticado como {@code username} y devuelve su id. */
+    private String createAccountAs(String username, String holder) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(tokenFor(username, username));
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        ResponseEntity<AccountResponse> created = restTemplate.postForEntity("/accounts",
+                new HttpEntity<>(new CreateAccountRequest(holder, new BigDecimal("100.00")), headers),
+                AccountResponse.class);
+        assertThat(created.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(created.getBody()).isNotNull();
+        return created.getBody().id().toString();
+    }
+
+    private ResponseEntity<String> getAccount(String accountId, String username) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(tokenFor(username, username));
+        return restTemplate.exchange("/accounts/" + accountId, HttpMethod.GET,
+                new HttpEntity<>(headers), String.class);
     }
 
     /** Obtiene un access token real de Keycloak por password-grant (client publico hexabank-frontend). */
