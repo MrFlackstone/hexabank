@@ -128,7 +128,7 @@ public class LedgerService implements RecordLedgerUseCase, QueryLedgerUseCase, G
     private void appendEntry(UUID eventId, UUID transferId, UUID accountId, EntryType type, BigDecimal amount) {
         LedgerEntry entry = LedgerEntry.of(eventId, transferId, accountId, type, amount);
         ledgerEntries.append(entry);
-        broadcast.broadcast(entry);
+        broadcast.broadcast(entry, accountOwnership.ownerOf(accountId).orElse(null));
     }
 
     // ===== Consulta (QueryLedgerUseCase / GetTransferViewUseCase) =====

@@ -1,5 +1,6 @@
 package com.hexabank.ledger.infrastructure.sse;
 
+import com.hexabank.ledger.application.port.in.CallerContext;
 import com.hexabank.ledger.application.port.out.LedgerBroadcastPort;
 import com.hexabank.ledger.domain.LedgerEntry;
 import com.hexabank.ledger.infrastructure.rest.dto.LedgerEntryResponse;
@@ -14,7 +15,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Adaptador de salida que implementa {@link LedgerBroadcastPort} sobre Server-Sent Events. Mantiene la
- * lista de suscriptores conectados y empuja cada asiento nuevo a todos ellos.
+ * lista de suscriptores conectados y empuja cada asiento nuevo <em>solo</em> a quienes pueden verlo:
+ * el propietario de la cuenta afectada y los suscriptores STAFF.
  *
  * <p>La lista es {@link CopyOnWriteArrayList} porque hay concurrencia entre el hilo del consumidor de
  * Kafka (que difunde) y los hilos HTTP (que añaden/retiran emisores). Un emisor que falla al enviar se
@@ -26,27 +28,39 @@ public class SseLedgerBroadcaster implements LedgerBroadcastPort {
     private static final Logger log = LoggerFactory.getLogger(SseLedgerBroadcaster.class);
     private static final long SSE_TIMEOUT_MS = 3_600_000L; // 1 hora
 
-    private final List<SseEmitter> emitters = new CopyOnWriteArrayList<>();
+    /** Suscriptor SSE con la identidad con la que se autenticó al abrir el stream. */
+    private record Subscription(SseEmitter emitter, String subject, boolean staff) {
+
+        boolean canSee(String ownerId) {
+            return staff || (ownerId != null && ownerId.equals(subject));
+        }
+    }
+
+    private final List<Subscription> subscriptions = new CopyOnWriteArrayList<>();
 
     /** Registra un nuevo suscriptor SSE y lo retira al completarse, expirar o fallar. */
-    public SseEmitter subscribe() {
+    public SseEmitter subscribe(CallerContext caller) {
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
-        emitter.onCompletion(() -> emitters.remove(emitter));
-        emitter.onTimeout(() -> emitters.remove(emitter));
-        emitter.onError(e -> emitters.remove(emitter));
-        emitters.add(emitter);
+        Subscription subscription = new Subscription(emitter, caller.subject(), caller.staff());
+        emitter.onCompletion(() -> subscriptions.remove(subscription));
+        emitter.onTimeout(() -> subscriptions.remove(subscription));
+        emitter.onError(e -> subscriptions.remove(subscription));
+        subscriptions.add(subscription);
         return emitter;
     }
 
     @Override
-    public void broadcast(LedgerEntry entry) {
+    public void broadcast(LedgerEntry entry, String ownerId) {
         LedgerEntryResponse payload = LedgerEntryResponse.from(entry);
-        for (SseEmitter emitter : emitters) {
+        for (Subscription subscription : subscriptions) {
+            if (!subscription.canSee(ownerId)) {
+                continue;
+            }
             try {
-                emitter.send(SseEmitter.event().name("ledger-entry").data(payload));
+                subscription.emitter().send(SseEmitter.event().name("ledger-entry").data(payload));
             } catch (IOException | IllegalStateException ex) {
                 log.debug("Suscriptor SSE caído, se descarta: {}", ex.getMessage());
-                emitters.remove(emitter);
+                subscriptions.remove(subscription);
             }
         }
     }

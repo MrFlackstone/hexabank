@@ -18,6 +18,7 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
 import org.springframework.security.web.SecurityFilterChain;
 
 import java.util.Collection;
@@ -29,10 +30,10 @@ import java.util.Map;
  * JWT valido emitido por Keycloak; sin token -> 401. Los endpoints de Actuator (health/info/prometheus)
  * quedan abiertos: Prometheus los raspa sin token.
  *
- * <p>Excepcion consciente: {@code GET /ledger/stream} (SSE) queda ABIERTO. El navegador usa
- * {@code EventSource}, que no permite enviar la cabecera {@code Authorization}; protegerlo ahora
- * romperia el ledger en vivo de la UI. Se securizara (token por query-param o proxy autenticado)
- * cuando el frontend incorpore login OIDC.</p>
+ * <p>{@code GET /ledger/stream} (SSE) tambien exige JWT, pero admite el token como parametro de query
+ * ({@code ?access_token=...}): {@code EventSource} no permite enviar la cabecera {@code Authorization}
+ * y el query param es la via que contempla RFC 6750. El riesgo (el token puede acabar en logs de
+ * acceso) se asume documentado en un entorno de demo.</p>
  *
  * <p>API stateless: sin sesion HTTP y sin CSRF. Los roles de realm de Keycloak
  * ({@code realm_access.roles}) se mapean a authorities {@code ROLE_*}, habilitando method security
@@ -54,12 +55,23 @@ public class SecurityConfig {
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/health/**", "/actuator/info", "/actuator/prometheus").permitAll()
-                        .requestMatchers("/ledger/stream").permitAll()   // SSE abierto por ahora (ver javadoc)
                         .anyRequest().authenticated())
-                .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt
-                        .decoder(jwtDecoder)
-                        .jwtAuthenticationConverter(jwtAuthenticationConverter())));
+                .oauth2ResourceServer(oauth2 -> oauth2
+                        .bearerTokenResolver(bearerTokenResolver())
+                        .jwt(jwt -> jwt
+                                .decoder(jwtDecoder)
+                                .jwtAuthenticationConverter(jwtAuthenticationConverter())));
         return http.build();
+    }
+
+    /**
+     * Ademas de la cabecera {@code Authorization}, acepta el token como {@code ?access_token=} en la
+     * query (RFC 6750 §2.3): unica via posible para el SSE consumido con {@code EventSource}.
+     */
+    private DefaultBearerTokenResolver bearerTokenResolver() {
+        DefaultBearerTokenResolver resolver = new DefaultBearerTokenResolver();
+        resolver.setAllowUriQueryParameter(true);
+        return resolver;
     }
 
     /**

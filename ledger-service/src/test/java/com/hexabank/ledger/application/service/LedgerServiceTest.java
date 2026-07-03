@@ -23,6 +23,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -49,13 +50,14 @@ class LedgerServiceTest {
     }
 
     @Test
-    @DisplayName("MoneyDebited registra asiento DEBIT, rellena la proyección y difunde")
+    @DisplayName("MoneyDebited registra asiento DEBIT, rellena la proyección y difunde con su propietario")
     void moneyDebitedRecordsEntryAndProjection() {
         UUID eventId = UUID.randomUUID();
         UUID transferId = UUID.randomUUID();
         UUID accountId = UUID.randomUUID();
         when(processedEvents.alreadyProcessed(eventId)).thenReturn(false);
         when(transferViews.find(transferId)).thenReturn(Optional.empty());
+        when(accountOwnership.ownerOf(accountId)).thenReturn(Optional.of("alice-sub"));
 
         service.onMoneyDebited(eventId, transferId, accountId, new BigDecimal("40.00"));
 
@@ -69,7 +71,7 @@ class LedgerServiceTest {
         assertThat(viewCaptor.getValue().sourceAccountId()).isEqualTo(accountId);
         assertThat(viewCaptor.getValue().amount()).isEqualByComparingTo("40.00");
 
-        verify(broadcast).broadcast(any(LedgerEntry.class));
+        verify(broadcast).broadcast(any(LedgerEntry.class), eq("alice-sub"));
         verify(processedEvents).markProcessed(eventId);
     }
 

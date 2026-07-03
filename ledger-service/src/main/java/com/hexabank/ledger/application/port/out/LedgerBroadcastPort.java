@@ -11,5 +11,10 @@ import com.hexabank.ledger.domain.LedgerEntry;
  */
 public interface LedgerBroadcastPort {
 
-    void broadcast(LedgerEntry entry);
+    /**
+     * Difunde el asiento a los suscriptores autorizados: el propietario de la cuenta afectada y STAFF.
+     * La aplicación resuelve {@code ownerId} (puede ser nulo si la proyección no conoce la cuenta:
+     * entonces solo STAFF lo recibe); el adaptador no toca persistencia.
+     */
+    void broadcast(LedgerEntry entry, String ownerId);
 }

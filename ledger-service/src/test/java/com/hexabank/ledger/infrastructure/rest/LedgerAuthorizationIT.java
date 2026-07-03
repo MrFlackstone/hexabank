@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -30,6 +31,8 @@ import org.testcontainers.kafka.KafkaContainer;
 import org.testcontainers.utility.DockerImageName;
 
 import java.math.BigDecimal;
+import java.net.HttpURLConnection;
+import java.net.URI;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.Map;
@@ -67,6 +70,9 @@ class LedgerAuthorizationIT {
         registry.add("spring.security.oauth2.resourceserver.jwt.issuer-uri",
                 () -> keycloak.getAuthServerUrl() + "/realms/hexabank");
     }
+
+    @LocalServerPort
+    int port;
 
     @Autowired
     TestRestTemplate restTemplate;
@@ -113,6 +119,27 @@ class LedgerAuthorizationIT {
 
         assertThat(get("/transfers/" + transferId, "bob").getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         assertThat(get("/transfers/" + transferId, "staff").getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
+
+    @Test
+    @DisplayName("SSE /ledger/stream: sin token 401; con ?access_token= 200")
+    void sseRequiresQueryParamToken() throws Exception {
+        ensureProjectionSeeded();
+
+        ResponseEntity<String> anonymous = restTemplate.getForEntity("/ledger/stream", String.class);
+        assertThat(anonymous.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+
+        HttpURLConnection connection = (HttpURLConnection) URI.create(
+                        "http://localhost:" + port + "/ledger/stream?access_token=" + tokenFor("alice", "alice"))
+                .toURL().openConnection();
+        connection.setConnectTimeout(5_000);
+        connection.setReadTimeout(10_000);
+        try {
+            assertThat(connection.getResponseCode()).isEqualTo(200);
+            assertThat(connection.getContentType()).contains(MediaType.TEXT_EVENT_STREAM_VALUE);
+        } finally {
+            connection.disconnect();
+        }
     }
 
     /** Publica AccountOpened para la cuenta de alice (una vez) y espera a la proyección. */
