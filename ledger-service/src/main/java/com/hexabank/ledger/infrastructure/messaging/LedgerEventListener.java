@@ -1,6 +1,7 @@
 package com.hexabank.ledger.infrastructure.messaging;
 
 import com.hexabank.ledger.application.port.in.RecordLedgerUseCase;
+import com.hexabank.shared.events.AccountOpened;
 import com.hexabank.shared.events.DomainEvent;
 import com.hexabank.shared.events.MoneyCredited;
 import com.hexabank.shared.events.MoneyDebited;
@@ -41,6 +42,7 @@ public class LedgerEventListener {
             case MoneyRefunded e -> recordLedger.onMoneyRefunded(e.eventId(), e.transferId(), e.accountId(), e.amount());
             case TransferCompleted e -> recordLedger.onTransferCompleted(e.eventId(), e.transferId());
             case TransferFailed e -> recordLedger.onTransferFailed(e.eventId(), e.transferId());
+            case AccountOpened e -> recordLedger.onAccountOpened(e.eventId(), e.accountId(), e.ownerId());
             default -> log.debug("Evento ignorado en el ledger: {}", event.getClass().getSimpleName());
         }
     }

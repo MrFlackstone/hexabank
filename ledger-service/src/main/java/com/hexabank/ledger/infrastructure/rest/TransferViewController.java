@@ -2,6 +2,7 @@ package com.hexabank.ledger.infrastructure.rest;
 
 import com.hexabank.ledger.application.port.in.GetTransferViewUseCase;
 import com.hexabank.ledger.infrastructure.rest.dto.TransferViewResponse;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -23,7 +24,7 @@ public class TransferViewController {
     }
 
     @GetMapping("/{id}")
-    public TransferViewResponse getById(@PathVariable("id") UUID id) {
-        return TransferViewResponse.from(getTransferView.getTransfer(id));
+    public TransferViewResponse getById(@PathVariable("id") UUID id, Authentication authentication) {
+        return TransferViewResponse.from(getTransferView.getTransfer(id, CallerContexts.from(authentication)));
     }
 }

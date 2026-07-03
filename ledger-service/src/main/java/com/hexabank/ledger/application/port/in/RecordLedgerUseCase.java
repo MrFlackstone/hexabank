@@ -18,4 +18,7 @@ public interface RecordLedgerUseCase {
     void onTransferCompleted(UUID eventId, UUID transferId);
 
     void onTransferFailed(UUID eventId, UUID transferId);
+
+    /** Mantiene la proyección local de propietarios de cuenta ({@code AccountOpened}). */
+    void onAccountOpened(UUID eventId, UUID accountId, String ownerId);
 }

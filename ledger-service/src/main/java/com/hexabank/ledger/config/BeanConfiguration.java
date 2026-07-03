@@ -1,5 +1,6 @@
 package com.hexabank.ledger.config;
 
+import com.hexabank.ledger.application.port.out.AccountOwnershipPort;
 import com.hexabank.ledger.application.port.out.LedgerBroadcastPort;
 import com.hexabank.ledger.application.port.out.LedgerEntryRepositoryPort;
 import com.hexabank.ledger.application.port.out.ProcessedEventPort;
@@ -20,8 +21,9 @@ public class BeanConfiguration {
     LedgerService ledgerService(LedgerEntryRepositoryPort ledgerEntryRepositoryPort,
                                 TransferViewRepositoryPort transferViewRepositoryPort,
                                 ProcessedEventPort processedEventPort,
-                                LedgerBroadcastPort ledgerBroadcastPort) {
+                                LedgerBroadcastPort ledgerBroadcastPort,
+                                AccountOwnershipPort accountOwnershipPort) {
         return new LedgerService(ledgerEntryRepositoryPort, transferViewRepositoryPort,
-                processedEventPort, ledgerBroadcastPort);
+                processedEventPort, ledgerBroadcastPort, accountOwnershipPort);
     }
 }
