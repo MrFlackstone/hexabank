@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { CreateAccountScreen } from './screens/CreateAccountScreen';
 import { TransferScreen } from './screens/TransferScreen';
 import { LiveLedgerScreen } from './screens/LiveLedgerScreen';
+import { SessionBar } from './auth/SessionBar';
 
 type Tab = 'accounts' | 'transfer' | 'ledger';
 
@@ -17,10 +18,15 @@ export function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>
-          Hexa<span className="accent">Bank</span>
-        </h1>
-        <p className="subtitle">Saga de transferencias sobre Kafka · arquitectura hexagonal · CQRS</p>
+        <div className="app-title">
+          <h1>
+            Hexa<span className="accent">Bank</span>
+          </h1>
+          <p className="subtitle">
+            Saga de transferencias sobre Kafka · arquitectura hexagonal · CQRS
+          </p>
+        </div>
+        <SessionBar />
       </header>
 
       <nav className="tabs">
