@@ -8,6 +8,10 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   server: {
+    // El realm de Keycloak solo permite redirect/webOrigins en http://localhost:3000, asi que el
+    // dev-server tiene que servir en ese puerto (el default 5173 seria rechazado en el login OIDC).
+    port: 3000,
+    strictPort: true,
     proxy: {
       '/api/accounts': { target: 'http://localhost:8081', changeOrigin: true, rewrite: (p) => p.replace(/^\/api/, '') },
       '/api/transfers': { target: 'http://localhost:8082', changeOrigin: true, rewrite: (p) => p.replace(/^\/api/, '') },
