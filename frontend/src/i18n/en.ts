@@ -1,0 +1,71 @@
+// English resources.
+export const en = {
+  app: {
+    subtitle: 'Transfer saga over Kafka · hexagonal architecture · CQRS',
+  },
+  common: {
+    unexpectedError: 'Unexpected error',
+    language: 'Language',
+  },
+  nav: {
+    accounts: 'Create account',
+    transfer: 'Transfer',
+    ledger: 'Live ledger',
+  },
+  session: {
+    logout: 'Log out',
+    loading: 'Loading session…',
+    authError: 'Authentication error: {{message}}',
+    retry: 'Retry',
+    expired: 'Your session has expired. Log in again to keep operating.',
+    reenter: 'Log in again',
+  },
+  login: {
+    title: 'Log in',
+    intro:
+      'You need a session to operate. Demo users: alice / bob (customer) · staff (bank staff). The password matches the username.',
+    cta: 'Log in with Keycloak',
+  },
+  accounts: {
+    new: 'New account',
+    holder: 'Holder',
+    holderPlaceholder: 'Ada Lovelace',
+    initialBalance: 'Initial balance (€)',
+    creating: 'Creating…',
+    create: 'Create account',
+    createdThisSession: 'Accounts created in this session',
+    none: 'You have not created any account yet.',
+    copyId: 'Copy ID',
+  },
+  transfer: {
+    new: 'New transfer',
+    source: 'Source account (ID)',
+    destination: 'Destination account (ID)',
+    amount: 'Amount (€)',
+    sending: 'Sending…',
+    submit: 'Transfer',
+    tracking: 'Saga tracking',
+    transferId: 'Transfer ID:',
+    orchestrator: 'Orchestrator (transfer-service)',
+    orchestratorHint: 'Authoritative state · saga state machine',
+    inProgress: 'in progress…',
+    projection: 'Read projection (ledger-service)',
+    projectionHint: 'CQRS read-model · built from events (asynchronous)',
+    notProjected: 'not projected yet…',
+    footnote:
+      'The orchestrator and the projection converge to the same final state, but the read-model may lag for an instant: that is CQRS eventual consistency in action.',
+  },
+  ledger: {
+    title: 'Ledger',
+    intro: 'Each transfer produces entries (DEBIT/CREDIT) that arrive in real time over SSE.',
+    empty: 'No entries yet. Start a transfer to watch them appear.',
+    colTime: 'Time',
+    colType: 'Type',
+    colAccount: 'Account',
+    colAmount: 'Amount',
+    colTransfer: 'Transfer',
+    statusConnecting: 'connecting…',
+    statusLive: 'live',
+    statusError: 'disconnected',
+  },
+};

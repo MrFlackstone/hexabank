@@ -1,0 +1,71 @@
+// Recursos en español (idioma por defecto del proyecto).
+export const es = {
+  app: {
+    subtitle: 'Saga de transferencias sobre Kafka · arquitectura hexagonal · CQRS',
+  },
+  common: {
+    unexpectedError: 'Error inesperado',
+    language: 'Idioma',
+  },
+  nav: {
+    accounts: 'Crear cuenta',
+    transfer: 'Transferir',
+    ledger: 'Libro mayor en vivo',
+  },
+  session: {
+    logout: 'Cerrar sesión',
+    loading: 'Cargando sesión…',
+    authError: 'Error de autenticación: {{message}}',
+    retry: 'Reintentar',
+    expired: 'Tu sesión ha expirado. Vuelve a entrar para seguir operando.',
+    reenter: 'Volver a entrar',
+  },
+  login: {
+    title: 'Inicia sesión',
+    intro:
+      'Necesitas una sesión para operar. Usuarios de demo: alice / bob (cliente) · staff (personal de banco). La contraseña coincide con el usuario.',
+    cta: 'Entrar con Keycloak',
+  },
+  accounts: {
+    new: 'Nueva cuenta',
+    holder: 'Titular',
+    holderPlaceholder: 'Ada Lovelace',
+    initialBalance: 'Saldo inicial (€)',
+    creating: 'Creando…',
+    create: 'Crear cuenta',
+    createdThisSession: 'Cuentas creadas en esta sesión',
+    none: 'Aún no has creado ninguna cuenta.',
+    copyId: 'Copiar ID',
+  },
+  transfer: {
+    new: 'Nueva transferencia',
+    source: 'Cuenta origen (ID)',
+    destination: 'Cuenta destino (ID)',
+    amount: 'Importe (€)',
+    sending: 'Enviando…',
+    submit: 'Transferir',
+    tracking: 'Seguimiento de la saga',
+    transferId: 'ID transferencia:',
+    orchestrator: 'Orquestador (transfer-service)',
+    orchestratorHint: 'Estado autoritativo · máquina de estados de la saga',
+    inProgress: 'en curso…',
+    projection: 'Proyección de lectura (ledger-service)',
+    projectionHint: 'Read-model CQRS · construido desde eventos (asíncrono)',
+    notProjected: 'aún no proyectada…',
+    footnote:
+      'El orquestador y la proyección convergen al mismo estado final, pero el read-model puede ir un instante por detrás: ahí se ve la consistencia eventual de CQRS.',
+  },
+  ledger: {
+    title: 'Libro mayor',
+    intro: 'Cada transferencia genera asientos (DEBIT/CREDIT) que llegan en tiempo real por SSE.',
+    empty: 'Sin asientos todavía. Lanza una transferencia para verlos aparecer.',
+    colTime: 'Hora',
+    colType: 'Tipo',
+    colAccount: 'Cuenta',
+    colAmount: 'Importe',
+    colTransfer: 'Transferencia',
+    statusConnecting: 'conectando…',
+    statusLive: 'en vivo',
+    statusError: 'desconectado',
+  },
+};
