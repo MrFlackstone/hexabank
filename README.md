@@ -32,7 +32,7 @@ como showcase técnico de arquitectura hexagonal, comunicación event-driven y c
 
 - Java 21 (LTS) · Spring Boot 3.5 · Maven multi-módulo (con wrapper, sin instalación global)
 - Apache Kafka 3.9 en modo **KRaft** (sin Zookeeper) · PostgreSQL 16 (una base por servicio)
-- Frontend: React 18 + Vite + TypeScript + TanStack Query, servido por **Nginx** (reverse-proxy `/api`)
+- Frontend: React 18 + Vite + TypeScript + TanStack Query + react-i18next (ES/EN), servido por **Nginx** (reverse-proxy `/api`)
 - Observabilidad: Spring Boot Actuator + Micrometer + Prometheus + Grafana (provisionado)
 - Tests: JUnit 5 · Mockito · AssertJ · **Testcontainers** (Kafka + Postgres) · Awaitility
 - Docker Compose para levantar toda la demo en local
