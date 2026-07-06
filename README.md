@@ -105,7 +105,10 @@ docker compose up --build -d
 docker compose ps                      # todos los contenedores arriba
 ```
 
-- **App**: http://localhost:3000 — crear cuentas, transferir y ver el ledger en vivo.
+- **App**: http://localhost:3000 — **requiere login** (OIDC contra Keycloak). Usuarios de demo:
+  `alice` / `bob` (rol `USER`, solo sus cuentas) y `staff` (rol `STAFF`, todas); la contraseña
+  coincide con el usuario. Tras entrar: crear cuentas, transferir y ver el ledger en vivo.
+- **Keycloak**: http://localhost:8180 — consola admin (`admin`/`admin`), realm `hexabank`.
 - **Grafana**: http://localhost:3001 — dashboard _HexaBank — Observabilidad_ (throughput, consumer lag,
   latencia HTTP). Acceso anónimo de solo lectura.
 - **Prometheus**: http://localhost:9090 — _Status → Targets_ (3 servicios `UP`).
@@ -117,13 +120,16 @@ docker compose ps                      # todos los contenedores arriba
 ### Opción B — desarrollo con Maven
 
 ```bash
-# 1. Solo infraestructura (Kafka KRaft + Kafka UI + un Postgres por servicio)
-docker compose up -d kafka kafka-ui postgres-account postgres-transfer postgres-ledger
+# 1. Infraestructura (Kafka KRaft + Kafka UI + un Postgres por servicio + Keycloak y su Postgres)
+docker compose up -d kafka kafka-ui postgres-account postgres-transfer postgres-ledger \
+                     postgres-keycloak keycloak
 
 # 2. Build + tests de todo el monorepo (unit + integración con Testcontainers)
 ./mvnw verify
 
-# 3. Arrancar los servicios (cada uno en su terminal)
+# 3. Arrancar los servicios (cada uno en su terminal). Al correr en el host, apunta el emisor a
+#    localhost:8180 (los servicios no alcanzan el nombre interno keycloak:8080 fuera de compose):
+export SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=http://localhost:8180/realms/hexabank
 ./mvnw -pl account-service  spring-boot:run    # http://localhost:8081
 ./mvnw -pl transfer-service spring-boot:run    # http://localhost:8082
 ./mvnw -pl ledger-service   spring-boot:run    # http://localhost:8083
@@ -131,21 +137,30 @@ docker compose up -d kafka kafka-ui postgres-account postgres-transfer postgres-
 
 ### Probar una transferencia por API
 
+Todos los endpoints exigen un JWT válido (sin token → 401). Se obtiene un access token de Keycloak
+por password grant (habilitado en el client de demo) y se manda en `Authorization: Bearer`:
+
 ```bash
-# Crear dos cuentas
-curl -X POST localhost:8081/accounts -H 'Content-Type: application/json' \
+# Token de alice (rol USER). La cuenta origen debe pertenecer al llamante (se deriva del sub).
+TOKEN=$(curl -s localhost:8180/realms/hexabank/protocol/openid-connect/token \
+     -d grant_type=password -d client_id=hexabank-frontend \
+     -d username=alice -d password=alice | jq -r .access_token)
+AUTH="Authorization: Bearer $TOKEN"
+
+# Crear dos cuentas (quedan a nombre de alice, su dueña)
+curl -X POST localhost:8081/accounts -H "$AUTH" -H 'Content-Type: application/json' \
      -d '{"holder":"Ana","initialBalance":100.00}'
-curl -X POST localhost:8081/accounts -H 'Content-Type: application/json' \
+curl -X POST localhost:8081/accounts -H "$AUTH" -H 'Content-Type: application/json' \
      -d '{"holder":"Luis","initialBalance":0.00}'
 
-# Lanzar la transferencia (usa los ids devueltos arriba)
-curl -X POST localhost:8082/transfers -H 'Content-Type: application/json' \
+# Lanzar la transferencia (usa los ids devueltos arriba; el origen ha de ser de alice)
+curl -X POST localhost:8082/transfers -H "$AUTH" -H 'Content-Type: application/json' \
      -d '{"sourceAccountId":"<id-ana>","destinationAccountId":"<id-luis>","amount":40.00}'
 
 # Ver el estado de la saga, los saldos y el libro mayor
-curl localhost:8082/transfers/<id-transfer>     # status: COMPLETED
-curl localhost:8081/accounts/<id-ana>           # balance: 60.00
-curl localhost:8083/ledger?accountId=<id-ana>   # asientos DEBIT/CREDIT
+curl localhost:8082/transfers/<id-transfer> -H "$AUTH"    # status: COMPLETED
+curl localhost:8081/accounts/<id-ana>       -H "$AUTH"    # balance: 60.00
+curl "localhost:8083/ledger?accountId=<id-ana>" -H "$AUTH" # asientos DEBIT/CREDIT
 ```
 
 > Con la demo completa (Opción A) las llamadas van por Nginx en `localhost:3000/api`. Una transferencia
@@ -159,6 +174,7 @@ curl localhost:8083/ledger?accountId=<id-ana>   # asientos DEBIT/CREDIT
 | account-service                      | 8081                   |
 | transfer-service                     | 8082                   |
 | ledger-service                       | 8083                   |
+| Keycloak (IdP OIDC)                  | 8180                   |
 | Kafka (host)                         | 29092                  |
 | Kafka UI                             | 8080                   |
 | Prometheus                           | 127.0.0.1:9090         |
@@ -166,6 +182,7 @@ curl localhost:8083/ledger?accountId=<id-ana>   # asientos DEBIT/CREDIT
 | postgres-account                     | 5442 (db `accountdb`)  |
 | postgres-transfer                    | 5443 (db `transferdb`) |
 | postgres-ledger                      | 5444 (db `ledgerdb`)   |
+| postgres-keycloak                    | 5445 (db `keycloakdb`) |
 
 > Los Postgres usan el bloque de puertos host **544x** para no chocar con un PostgreSQL nativo en 5432.
 > Credenciales locales: `hexabank` / `hexabank`.
@@ -250,7 +267,14 @@ Cómo cada requisito de la oferta se materializa en el código:
 | **CI + revisión de código** | GitHub Actions (`ci.yml`) en cada push/PR; el trabajo entra por Pull Requests |
 | **Testing** | JUnit 5 / Mockito / AssertJ (dominio) + **Testcontainers** Kafka+Postgres (integración) + Awaitility (saga e2e) |
 | **Observabilidad** | Actuator + Micrometer → Prometheus (`/actuator/prometheus`); métrica de negocio vía puerto `TransferMetricsPort`; dashboard de Grafana provisionado |
+| **Autenticación / autorización** | OIDC con **Keycloak** (realm-as-code); los 3 servicios son OAuth2 Resource Server (JWT Bearer, validación de firma/`iss`/`aud`); autorización por **propiedad** (proyección CQRS de ownership) + roles `USER`/`STAFF` (`@PreAuthorize`), **404 anti existence-oracle**; **login OIDC** (Authorization Code + PKCE) en el frontend React, con SSE autenticado por cabecera Bearer |
 
 ## Roadmap
 
-- **Autenticación / autorización** — JWT resource-server por servicio.
+Auth end-to-end ya implementado (Keycloak OIDC, ownership + roles, login del frontend). Siguientes
+incrementos hacia un diseño de producción:
+
+- **Resiliencia Kafka** — patrón outbox, Idempotency-Key, DLT con retry/backoff, reaper de sagas.
+- **Concurrencia demostrable** — virtual threads, rate limiting, prueba de carga k6 en CI.
+- **Tracing distribuido** — Micrometer Tracing + Tempo/Jaeger, propagación de contexto por Kafka.
+- **Contratos** — OpenAPI/Swagger, contract testing y Schema Registry (Avro) para eventos.
