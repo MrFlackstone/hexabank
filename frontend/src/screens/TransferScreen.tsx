@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   requestTransfer,
@@ -15,6 +16,7 @@ function StatusBadge({ status }: { status?: string }) {
 }
 
 export function TransferScreen() {
+  const { t } = useTranslation();
   const [sourceAccountId, setSource] = useState('');
   const [destinationAccountId, setDest] = useState('');
   const [amount, setAmount] = useState('100');
@@ -58,14 +60,14 @@ export function TransferScreen() {
   return (
     <div className="grid">
       <section className="card">
-        <h2>Nueva transferencia</h2>
+        <h2>{t('transfer.new')}</h2>
         <form onSubmit={onSubmit} className="form">
           <label>
-            Cuenta origen (ID)
+            {t('transfer.source')}
             <input value={sourceAccountId} onChange={(e) => setSource(e.target.value)} required />
           </label>
           <label>
-            Cuenta destino (ID)
+            {t('transfer.destination')}
             <input
               value={destinationAccountId}
               onChange={(e) => setDest(e.target.value)}
@@ -73,7 +75,7 @@ export function TransferScreen() {
             />
           </label>
           <label>
-            Importe (€)
+            {t('transfer.amount')}
             <input
               type="number"
               min="0.01"
@@ -84,11 +86,13 @@ export function TransferScreen() {
             />
           </label>
           <button type="submit" disabled={mutation.isPending}>
-            {mutation.isPending ? 'Enviando…' : 'Transferir'}
+            {mutation.isPending ? t('transfer.sending') : t('transfer.submit')}
           </button>
           {mutation.isError && (
             <p className="error">
-              {mutation.error instanceof ApiError ? mutation.error.message : 'Error inesperado'}
+              {mutation.error instanceof ApiError
+                ? mutation.error.message
+                : t('common.unexpectedError')}
             </p>
           )}
         </form>
@@ -96,36 +100,33 @@ export function TransferScreen() {
 
       {transferId && (
         <section className="card">
-          <h2>Seguimiento de la saga</h2>
+          <h2>{t('transfer.tracking')}</h2>
           <p className="muted">
-            ID transferencia: <code>{transferId}</code>
+            {t('transfer.transferId')} <code>{transferId}</code>
           </p>
 
           <div className="cqrs">
             <div className="cqrs-panel">
-              <h3>Orquestador (transfer-service)</h3>
-              <p className="hint">Estado autoritativo · máquina de estados de la saga</p>
+              <h3>{t('transfer.orchestrator')}</h3>
+              <p className="hint">{t('transfer.orchestratorHint')}</p>
               <StatusBadge status={orchestrator.data?.status} />
               {!isTerminal(orchestrator.data?.status) && orchestrator.data && (
-                <span className="polling">↻ en curso…</span>
+                <span className="polling">↻ {t('transfer.inProgress')}</span>
               )}
             </div>
 
             <div className="cqrs-panel">
-              <h3>Proyección de lectura (ledger-service)</h3>
-              <p className="hint">Read-model CQRS · construido desde eventos (asíncrono)</p>
+              <h3>{t('transfer.projection')}</h3>
+              <p className="hint">{t('transfer.projectionHint')}</p>
               {projectionNotReady ? (
-                <span className="polling">aún no proyectada…</span>
+                <span className="polling">{t('transfer.notProjected')}</span>
               ) : (
                 <StatusBadge status={projection.data?.status} />
               )}
             </div>
           </div>
 
-          <p className="footnote">
-            El orquestador y la proyección convergen al mismo estado final, pero el read-model puede
-            ir un instante por detrás: ahí se ve la consistencia eventual de CQRS.
-          </p>
+          <p className="footnote">{t('transfer.footnote')}</p>
         </section>
       )}
     </div>

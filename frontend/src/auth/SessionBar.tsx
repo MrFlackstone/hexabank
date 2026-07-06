@@ -1,4 +1,6 @@
 import { useAuth } from 'react-oidc-context';
+import { useTranslation } from 'react-i18next';
+import { LanguageSwitcher } from '../i18n/LanguageSwitcher';
 
 // Los roles de realm viajan en el access token (claim realm_access.roles), no en el id token; se
 // decodifica el payload solo para mostrarlos (los mismos que el backend mapea a ROLE_*).
@@ -18,11 +20,13 @@ function realmRoles(accessToken?: string): string[] {
 // sin sesion).
 export function SessionBar() {
   const auth = useAuth();
+  const { t } = useTranslation();
   const username = auth.user?.profile.preferred_username ?? 'usuario';
   const roles = realmRoles(auth.user?.access_token);
 
   return (
     <div className="session-bar">
+      <LanguageSwitcher />
       <span className="session-user">
         <strong>{username}</strong>
         {roles.map((role) => (
@@ -32,7 +36,7 @@ export function SessionBar() {
         ))}
       </span>
       <button className="link" onClick={() => void auth.signoutRedirect()}>
-        Cerrar sesión
+        {t('session.logout')}
       </button>
     </div>
   );

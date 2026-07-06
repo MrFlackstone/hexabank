@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { CreateAccountScreen } from './screens/CreateAccountScreen';
 import { TransferScreen } from './screens/TransferScreen';
 import { LiveLedgerScreen } from './screens/LiveLedgerScreen';
@@ -6,13 +7,10 @@ import { SessionBar } from './auth/SessionBar';
 
 type Tab = 'accounts' | 'transfer' | 'ledger';
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'accounts', label: 'Crear cuenta' },
-  { id: 'transfer', label: 'Transferir' },
-  { id: 'ledger', label: 'Libro mayor en vivo' },
-];
+const TABS: Tab[] = ['accounts', 'transfer', 'ledger'];
 
 export function App() {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>('accounts');
 
   return (
@@ -22,21 +20,19 @@ export function App() {
           <h1>
             Hexa<span className="accent">Bank</span>
           </h1>
-          <p className="subtitle">
-            Saga de transferencias sobre Kafka · arquitectura hexagonal · CQRS
-          </p>
+          <p className="subtitle">{t('app.subtitle')}</p>
         </div>
         <SessionBar />
       </header>
 
       <nav className="tabs">
-        {TABS.map((t) => (
+        {TABS.map((id) => (
           <button
-            key={t.id}
-            className={`tab ${tab === t.id ? 'tab-active' : ''}`}
-            onClick={() => setTab(t.id)}
+            key={id}
+            className={`tab ${tab === id ? 'tab-active' : ''}`}
+            onClick={() => setTab(id)}
           >
-            {t.label}
+            {t(`nav.${id}`)}
           </button>
         ))}
       </nav>

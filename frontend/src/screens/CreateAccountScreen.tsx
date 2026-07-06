@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useMutation } from '@tanstack/react-query';
 import { createAccount, type Account } from '../api/accounts';
 import { ApiError } from '../api/client';
 
 export function CreateAccountScreen() {
+  const { t } = useTranslation();
   const [holder, setHolder] = useState('');
   const [initialBalance, setInitialBalance] = useState('1000');
   const [created, setCreated] = useState<Account[]>([]);
@@ -26,19 +28,19 @@ export function CreateAccountScreen() {
   return (
     <div className="grid">
       <section className="card">
-        <h2>Nueva cuenta</h2>
+        <h2>{t('accounts.new')}</h2>
         <form onSubmit={onSubmit} className="form">
           <label>
-            Titular
+            {t('accounts.holder')}
             <input
               value={holder}
               onChange={(e) => setHolder(e.target.value)}
-              placeholder="Ada Lovelace"
+              placeholder={t('accounts.holderPlaceholder')}
               required
             />
           </label>
           <label>
-            Saldo inicial (€)
+            {t('accounts.initialBalance')}
             <input
               type="number"
               min="0"
@@ -49,20 +51,22 @@ export function CreateAccountScreen() {
             />
           </label>
           <button type="submit" disabled={mutation.isPending}>
-            {mutation.isPending ? 'Creando…' : 'Crear cuenta'}
+            {mutation.isPending ? t('accounts.creating') : t('accounts.create')}
           </button>
           {mutation.isError && (
             <p className="error">
-              {mutation.error instanceof ApiError ? mutation.error.message : 'Error inesperado'}
+              {mutation.error instanceof ApiError
+                ? mutation.error.message
+                : t('common.unexpectedError')}
             </p>
           )}
         </form>
       </section>
 
       <section className="card">
-        <h2>Cuentas creadas en esta sesión</h2>
+        <h2>{t('accounts.createdThisSession')}</h2>
         {created.length === 0 ? (
-          <p className="muted">Aún no has creado ninguna cuenta.</p>
+          <p className="muted">{t('accounts.none')}</p>
         ) : (
           <ul className="account-list">
             {created.map((a) => (
@@ -71,7 +75,7 @@ export function CreateAccountScreen() {
                   <strong>{a.holder}</strong>
                   <span className="balance">{a.balance.toFixed(2)} €</span>
                 </div>
-                <button className="link" onClick={() => copy(a.id)} title="Copiar ID">
+                <button className="link" onClick={() => copy(a.id)} title={t('accounts.copyId')}>
                   <code>{a.id}</code> ⧉
                 </button>
               </li>
