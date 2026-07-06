@@ -3,6 +3,7 @@ import { useAuth } from 'react-oidc-context';
 import { App } from '../App';
 import { setAccessTokenProvider } from '../api/client';
 import { LoginScreen } from './LoginScreen';
+import { SessionExpiredBanner } from './SessionExpiredBanner';
 
 // Guarda de sesion (la SPA no usa router: gateamos toda el area autenticada). Mientras la libreria
 // resuelve el estado inicial / procesa el callback -> splash; error -> reintento; sin sesion ->
@@ -34,5 +35,10 @@ export function AuthGate() {
     return <LoginScreen />;
   }
 
-  return <App />;
+  return (
+    <>
+      <SessionExpiredBanner />
+      <App />
+    </>
+  );
 }

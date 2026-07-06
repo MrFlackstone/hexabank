@@ -18,6 +18,14 @@ export function setAccessTokenProvider(provider: () => string | null): void {
   accessTokenProvider = provider;
 }
 
+// Manejador de 401 (token invalido/ausente pese a tener sesion): lo registra la capa de auth para
+// avisar de sesion expirada. No aplica a 403 (autenticado pero sin permiso), que es un error normal.
+let unauthorizedHandler: () => void = () => {};
+
+export function setUnauthorizedHandler(handler: () => void): void {
+  unauthorizedHandler = handler;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const token = accessTokenProvider();
   // Se fusionan las cabeceras del llamante sobre las base y, por ultimo, el Bearer (headers va
@@ -38,6 +46,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       /* respuesta sin cuerpo JSON: nos quedamos con el status */
     }
+    if (res.status === 401) unauthorizedHandler();
     throw new ApiError(res.status, detail);
   }
 
