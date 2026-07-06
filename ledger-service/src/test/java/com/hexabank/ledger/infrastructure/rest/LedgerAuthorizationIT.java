@@ -45,7 +45,7 @@ import static org.awaitility.Awaitility.await;
  * Test de integración de la autorización de consultas del ledger con la pila real: Keycloak (roles de
  * realm en el JWT: valida también el mapeo realm_access → ROLE_*), Kafka (proyección de ownership
  * sembrada con {@code AccountOpened} reales) y Postgres. Cubre el gate de rol del libro completo
- * (403), el 404 anti existence-oracle por cuenta y el SSE autenticado por query param. Requiere Docker.
+ * (403), el 404 anti existence-oracle por cuenta y el SSE autenticado por cabecera Bearer. Requiere Docker.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Testcontainers
@@ -122,24 +122,41 @@ class LedgerAuthorizationIT {
     }
 
     @Test
-    @DisplayName("SSE /ledger/stream: sin token 401; con ?access_token= 200")
-    void sseRequiresQueryParamToken() throws Exception {
+    @DisplayName("SSE /ledger/stream: sin token 401; con cabecera Bearer 200; el query param NO autentica")
+    void sseRequiresBearerHeader() throws Exception {
         ensureProjectionSeeded();
 
         ResponseEntity<String> anonymous = restTemplate.getForEntity("/ledger/stream", String.class);
         assertThat(anonymous.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
 
-        HttpURLConnection connection = (HttpURLConnection) URI.create(
-                        "http://localhost:" + port + "/ledger/stream?access_token=" + tokenFor("alice", "alice"))
+        // El token por query ya no se acepta (se retiro el resolver que lo permitia): sin cabecera -> 401.
+        HttpURLConnection queryParam = open("/ledger/stream?access_token=" + tokenFor("alice", "alice"), null);
+        try {
+            assertThat(queryParam.getResponseCode()).isEqualTo(HttpStatus.UNAUTHORIZED.value());
+        } finally {
+            queryParam.disconnect();
+        }
+
+        // Con la cabecera Authorization: Bearer -> 200 y stream de eventos.
+        HttpURLConnection header = open("/ledger/stream", tokenFor("alice", "alice"));
+        try {
+            assertThat(header.getResponseCode()).isEqualTo(200);
+            assertThat(header.getContentType()).contains(MediaType.TEXT_EVENT_STREAM_VALUE);
+        } finally {
+            header.disconnect();
+        }
+    }
+
+    /** Abre una conexion GET al puerto del servicio; si {@code bearer} no es null lo manda en Authorization. */
+    private HttpURLConnection open(String path, String bearer) throws Exception {
+        HttpURLConnection connection = (HttpURLConnection) URI.create("http://localhost:" + port + path)
                 .toURL().openConnection();
         connection.setConnectTimeout(5_000);
         connection.setReadTimeout(10_000);
-        try {
-            assertThat(connection.getResponseCode()).isEqualTo(200);
-            assertThat(connection.getContentType()).contains(MediaType.TEXT_EVENT_STREAM_VALUE);
-        } finally {
-            connection.disconnect();
+        if (bearer != null) {
+            connection.setRequestProperty("Authorization", "Bearer " + bearer);
         }
+        return connection;
     }
 
     /** Publica AccountOpened para la cuenta de alice (una vez) y espera a la proyección. */
