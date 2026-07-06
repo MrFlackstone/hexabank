@@ -140,6 +140,11 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-account:5432/accountdb
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      # Split frontchannel/backchannel: el token que emite Keycloak al navegador lleva el emisor
+      # publico (localhost:8180), asi que validamos ese 'iss'; las claves (JWKS) se descargan por el
+      # canal interno (keycloak:8080), inalcanzable como 'localhost' desde el contenedor.
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://localhost:8180/realms/hexabank
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/hexabank/protocol/openid-connect/certs
     depends_on:
       kafka:
         condition: service_healthy
@@ -161,6 +166,9 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-transfer:5432/transferdb
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      # Split frontchannel/backchannel (ver account-service): emisor publico + JWKS interno.
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://localhost:8180/realms/hexabank
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/hexabank/protocol/openid-connect/certs
     depends_on:
       kafka:
         condition: service_healthy
@@ -182,6 +190,9 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-ledger:5432/ledgerdb
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      # Split frontchannel/backchannel (ver account-service): emisor publico + JWKS interno.
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://localhost:8180/realms/hexabank
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/hexabank/protocol/openid-connect/certs
     depends_on:
       kafka:
         condition: service_healthy
@@ -235,6 +246,10 @@ services:
       KC_HTTP_ENABLED: "true"
       KC_HOSTNAME_STRICT: "false"
       KC_HEALTH_ENABLED: "true"
+      # Emisor (frontchannel) fijo: el 'iss' de los tokens es SIEMPRE http://localhost:8180/... con
+      # independencia del Host de la peticion. Asi el token que obtiene el navegador es el mismo que
+      # esperan los 3 resource-servers (que validan ese emisor y descargan las claves por keycloak:8080).
+      KC_HOSTNAME: http://localhost:8180
     ports:
       - "8180:8080"
     volumes:
