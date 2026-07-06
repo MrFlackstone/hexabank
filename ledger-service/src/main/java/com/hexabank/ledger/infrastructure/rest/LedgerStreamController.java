@@ -9,8 +9,9 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /**
  * Adaptador de entrada que expone el feed en vivo del libro mayor por Server-Sent Events. El frontend
- * se suscribe a {@code GET /ledger/stream?access_token=...} (JWT por query param: {@code EventSource}
- * no admite cabeceras) y recibe en tiempo real los asientos de sus cuentas (todos, si es STAFF).
+ * se suscribe a {@code GET /ledger/stream} con el JWT en la cabecera {@code Authorization: Bearer}
+ * (consumido con un cliente SSE basado en fetch, no el {@code EventSource} nativo) y recibe en tiempo
+ * real los asientos de sus cuentas (todos, si es STAFF).
  */
 @RestController
 public class LedgerStreamController {

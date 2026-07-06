@@ -1,5 +1,6 @@
 package com.hexabank.account.infrastructure.persistence;
 
+import com.hexabank.account.config.TestSecurityConfig;
 import com.hexabank.account.domain.Account;
 import com.hexabank.account.domain.AccountId;
 import com.hexabank.account.domain.Money;
@@ -11,7 +12,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration;
+import org.springframework.context.annotation.Import;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -28,6 +31,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * Flyway aplicando el esquema. Requiere Docker.
  */
 @SpringBootTest
+@ActiveProfiles("test")            // desactiva la SecurityConfig de produccion (@Profile("!test"))
+@Import(TestSecurityConfig.class)  // ...y la sustituye por seguridad permisiva (este IT prueba persistencia)
 @Testcontainers
 @ImportAutoConfiguration(exclude = KafkaAutoConfiguration.class)
 class AccountPersistenceAdapterIT {

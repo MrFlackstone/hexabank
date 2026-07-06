@@ -46,6 +46,16 @@ public class SseLedgerBroadcaster implements LedgerBroadcastPort {
         emitter.onTimeout(() -> subscriptions.remove(subscription));
         emitter.onError(e -> subscriptions.remove(subscription));
         subscriptions.add(subscription);
+        try {
+            // Handshake: un comentario SSE inicial fuerza el volcado de las cabeceras 200 al conectar.
+            // Sin el, Spring no confirma la respuesta hasta el primer asiento, y el cliente se quedaria
+            // en "conectando" (y su onopen no dispararia) hasta que hubiera actividad. Un comentario (:)
+            // no llega al onmessage del cliente.
+            emitter.send(SseEmitter.event().comment("connected"));
+        } catch (IOException ex) {
+            subscriptions.remove(subscription);
+            emitter.completeWithError(ex);
+        }
         return emitter;
     }
 

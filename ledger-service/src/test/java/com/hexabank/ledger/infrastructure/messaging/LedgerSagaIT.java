@@ -1,5 +1,6 @@
 package com.hexabank.ledger.infrastructure.messaging;
 
+import com.hexabank.ledger.config.TestSecurityConfig;
 import com.hexabank.ledger.domain.TransferView;
 import com.hexabank.ledger.infrastructure.persistence.LedgerEntryJpaRepository;
 import com.hexabank.ledger.infrastructure.persistence.ProcessedEventJpaRepository;
@@ -12,7 +13,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.context.annotation.Import;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -39,6 +42,8 @@ import static org.awaitility.Awaitility.await;
  * <p>Requiere Docker.</p>
  */
 @SpringBootTest
+@ActiveProfiles("test")            // desactiva la SecurityConfig de produccion (@Profile("!test"))
+@Import(TestSecurityConfig.class)  // ...y la sustituye por seguridad permisiva (este IT prueba Kafka)
 @Testcontainers
 class LedgerSagaIT {
 
