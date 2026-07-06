@@ -94,13 +94,24 @@ public class SecurityConfig {
     }
 
     /**
-     * Decoder que resuelve la clave publica (JWKS) de Keycloak de forma perezosa (en el primer token,
-     * no en el arranque: el servicio no depende de que Keycloak este arriba para iniciar). Valida firma
-     * + {@code iss}/{@code exp} por defecto y, ademas, la audiencia {@code hexabank-api}.
+     * Decoder JWT. Desacopla que emisor se confia de donde se descargan las claves (split
+     * frontchannel/backchannel):
+     * <ul>
+     *   <li><b>Con {@code jwk-set-uri} (compose):</b> las claves (JWKS) se descargan por el canal
+     *       interno ({@code keycloak:8080}), pero el {@code iss} que se valida es el emisor publico
+     *       ({@code issuer-uri = localhost:8180}), que es el que lleva el token emitido al navegador.</li>
+     *   <li><b>Sin {@code jwk-set-uri} (IT de Testcontainers):</b> resolucion perezosa via
+     *       {@code withIssuerLocation}: emisor y JWKS comparten un unico URL dinamico.</li>
+     * </ul>
+     * En ambos casos se valida firma + {@code iss}/{@code exp} y la audiencia {@code hexabank-api}.
      */
     @Bean
-    JwtDecoder jwtDecoder(@Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuerUri) {
-        NimbusJwtDecoder decoder = NimbusJwtDecoder.withIssuerLocation(issuerUri).build();
+    JwtDecoder jwtDecoder(
+            @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuerUri,
+            @Value("${spring.security.oauth2.resourceserver.jwt.jwk-set-uri:}") String jwkSetUri) {
+        NimbusJwtDecoder decoder = (jwkSetUri == null || jwkSetUri.isBlank())
+                ? NimbusJwtDecoder.withIssuerLocation(issuerUri).build()
+                : NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
         decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
                 JwtValidators.createDefaultWithIssuer(issuerUri),
                 new AudienceValidator("hexabank-api")));
