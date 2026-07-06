@@ -9,11 +9,25 @@ export class ApiError extends Error {
   }
 }
 
+// Puente token<->modulo: client.ts no es React. Un efecto de nivel superior (AuthGate) registra aqui
+// una funcion que devuelve el access token vigente; request() la consulta en cada llamada, asi el
+// token renovado se usa sin recablear nada.
+let accessTokenProvider: () => string | null = () => null;
+
+export function setAccessTokenProvider(provider: () => string | null): void {
+  accessTokenProvider = provider;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...init,
-  });
+  const token = accessTokenProvider();
+  // Se fusionan las cabeceras del llamante sobre las base y, por ultimo, el Bearer (headers va
+  // despues de ...init en fetch, de modo que no lo pisa el spread).
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(init?.headers as Record<string, string> | undefined),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+  const res = await fetch(`${BASE}${path}`, { ...init, headers });
 
   if (!res.ok) {
     // Spring devuelve un cuerpo de error (problem+json o validacion). Extraemos un mensaje legible.

@@ -1,5 +1,7 @@
+import { useEffect } from 'react';
 import { useAuth } from 'react-oidc-context';
 import { App } from '../App';
+import { setAccessTokenProvider } from '../api/client';
 import { LoginScreen } from './LoginScreen';
 
 // Guarda de sesion (la SPA no usa router: gateamos toda el area autenticada). Mientras la libreria
@@ -7,6 +9,11 @@ import { LoginScreen } from './LoginScreen';
 // pantalla de login; con sesion -> la app.
 export function AuthGate() {
   const auth = useAuth();
+
+  // Registra el token vigente en el cliente HTTP; se reejecuta al renovarse el access token.
+  useEffect(() => {
+    setAccessTokenProvider(() => auth.user?.access_token ?? null);
+  }, [auth.user]);
 
   if (auth.isLoading) {
     return <div className="auth-splash">Cargando sesión…</div>;
