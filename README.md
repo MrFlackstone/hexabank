@@ -24,6 +24,9 @@ como showcase técnico de arquitectura hexagonal, comunicación event-driven y c
   partir de los eventos, y empuja actualizaciones en vivo al frontend por **SSE**.
 - **Robustez del consumidor**: idempotencia (tabla `processed_events`) frente a la entrega
   _at-least-once_, reintentos con backoff y reubicación a `*.DLT` de los mensajes irrecuperables.
+- **Consistencia y resiliencia de la saga**: **patrón outbox** (publicación transaccional, cierra el
+  dual-write), **Idempotency-Key** opcional en `POST /transfers` (deduplica reintentos de cliente) y un
+  **reaper** que recupera las sagas atascadas (timeout → compensación / fallo).
 - **Concurrencia**: bloqueo optimista (`@Version`) y orden por clave de partición (`accountId`).
 - **Observabilidad**: métricas técnicas (latencia HTTP, consumer lag de Kafka) y de negocio
   (transferencias completadas/fallidas) en Prometheus, visualizadas en un dashboard de Grafana.
@@ -264,6 +267,7 @@ Cómo cada requisito de la oferta se materializa en el código:
 | **Kafka / event-driven** | Saga de orquestación sobre topics particionados (`account-commands`/`account-events`/`transfer-events`); `@KafkaListener` + `KafkaTemplate`; máquina de estados con **compensación** (`RefundRequested`) |
 | **Alta concurrencia** | Bloqueo optimista `@Version` + `saveAndFlush`; consumidores **idempotentes** (`processed_events` por `eventId`) frente al at-least-once; orden por clave de partición; servicios stateless |
 | **Robustez del consumidor** | `DefaultErrorHandler` + `DeadLetterPublishingRecoverer` con backoff → `*.DLT` para mensajes irrecuperables |
+| **Resiliencia de la saga** | **Outbox** transaccional (relay `@Scheduled`, cierra el dual-write) en transfer + account; **Idempotency-Key** opcional en `POST /transfers`; **reaper** `@Scheduled` de sagas atascadas (`PENDING`/`DEBITED`/`COMPENSATING` → transición segura) con reembolso idempotente por `transferId` |
 | **CI + revisión de código** | GitHub Actions (`ci.yml`) en cada push/PR; el trabajo entra por Pull Requests |
 | **Testing** | JUnit 5 / Mockito / AssertJ (dominio) + **Testcontainers** Kafka+Postgres (integración) + Awaitility (saga e2e) |
 | **Observabilidad** | Actuator + Micrometer → Prometheus (`/actuator/prometheus`); métrica de negocio vía puerto `TransferMetricsPort`; dashboard de Grafana provisionado |
@@ -271,10 +275,10 @@ Cómo cada requisito de la oferta se materializa en el código:
 
 ## Roadmap
 
-Auth end-to-end ya implementado (Keycloak OIDC, ownership + roles, login del frontend). Siguientes
+Auth end-to-end (Keycloak OIDC, ownership + roles, login del frontend) y **resiliencia de la saga**
+(patrón outbox, Idempotency-Key, DLT con retry/backoff y reaper) ya implementados. Siguientes
 incrementos hacia un diseño de producción:
 
-- **Resiliencia Kafka** — patrón outbox, Idempotency-Key, DLT con retry/backoff, reaper de sagas.
 - **Concurrencia demostrable** — virtual threads, rate limiting, prueba de carga k6 en CI.
 - **Tracing distribuido** — Micrometer Tracing + Tempo/Jaeger, propagación de contexto por Kafka.
 - **Contratos** — OpenAPI/Swagger, contract testing y Schema Registry (Avro) para eventos.
