@@ -8,6 +8,7 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.header.Header;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.jupiter.api.AfterEach;
@@ -24,6 +25,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
@@ -72,13 +74,15 @@ class KafkaDeadLetterIT {
     @DisplayName("Un mensaje que no se puede deserializar acaba en account-events.DLT")
     void poisonMessageIsRoutedToDeadLetterTopic() {
         String poison = "esto-no-es-un-evento-de-dominio-valido-" + UUID.randomUUID();
-        List<String> deadLetters = subscribeToDeadLetterTopic();
+        // Se comprueba por la cabecera de origen que añade el recoverer, no por el valor: al reubicar
+        // un fallo de deserialización, el valor se reescribe con el serializador de la plantilla.
+        List<String> deadLetterOriginTopics = subscribeToDeadLetterTopic();
 
         publishPoison(poison);
 
         await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
-            drainInto(deadLetters);
-            assertThat(deadLetters).contains(poison);
+            drainInto(deadLetterOriginTopics);
+            assertThat(deadLetterOriginTopics).contains(KafkaTopics.ACCOUNT_EVENTS);
         });
     }
 
@@ -105,7 +109,10 @@ class KafkaDeadLetterIT {
     private void drainInto(List<String> sink) {
         ConsumerRecords<String, String> records = dltConsumer.poll(Duration.ofMillis(500));
         for (ConsumerRecord<String, String> record : records) {
-            sink.add(record.value());
+            Header originalTopic = record.headers().lastHeader("kafka_dlt-original-topic");
+            if (originalTopic != null) {
+                sink.add(new String(originalTopic.value(), StandardCharsets.UTF_8));
+            }
         }
     }
 }

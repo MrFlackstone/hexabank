@@ -4,6 +4,7 @@ import com.hexabank.shared.events.DomainEvent;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Value;
@@ -100,7 +101,11 @@ public class KafkaConfig {
 
     @Bean
     DefaultErrorHandler errorHandler(KafkaTemplate<String, Object> kafkaTemplate) {
-        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(kafkaTemplate);
+        // Publica en el topic `<original>.DLT` declarado por KafkaTopics, conservando la partición.
+        // Sin resolver explícito, el recoverer usaría el sufijo por defecto (`-dlt`), que no coincide
+        // con los NewTopic declarados y acabaría en un topic autocreado distinto.
+        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(kafkaTemplate,
+                (record, exception) -> new TopicPartition(record.topic() + ".DLT", record.partition()));
         ExponentialBackOff backOff = new ExponentialBackOff(500L, 2.0);
         backOff.setMaxInterval(4000L);
         backOff.setMaxElapsedTime(5000L);
