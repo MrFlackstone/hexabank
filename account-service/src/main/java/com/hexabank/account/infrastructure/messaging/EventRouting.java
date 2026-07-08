@@ -1,6 +1,5 @@
 package com.hexabank.account.infrastructure.messaging;
 
-import com.hexabank.account.application.port.out.EventPublisherPort;
 import com.hexabank.shared.events.AccountOpened;
 import com.hexabank.shared.events.CreditFailed;
 import com.hexabank.shared.events.DebitFailed;
@@ -8,28 +7,24 @@ import com.hexabank.shared.events.DomainEvent;
 import com.hexabank.shared.events.MoneyCredited;
 import com.hexabank.shared.events.MoneyDebited;
 import com.hexabank.shared.events.MoneyRefunded;
-import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.stereotype.Component;
 
 /**
- * Adaptador de salida que publica los eventos de resultado en {@code account-events}, usando el
+ * Enrutado de los eventos que produce account-service: todos van a {@code account-events} con el
  * {@code accountId} del evento como clave de partición.
+ *
+ * <p>Lo usa el {@code OutboxEventPublisher} para calcular topic y clave al insertar la fila; el relay
+ * los reutiliza tal cual al publicar.</p>
  */
-@Component
-public class KafkaEventPublisher implements EventPublisherPort {
+final class EventRouting {
 
-    private final KafkaTemplate<String, Object> kafkaTemplate;
-
-    public KafkaEventPublisher(KafkaTemplate<String, Object> kafkaTemplate) {
-        this.kafkaTemplate = kafkaTemplate;
+    private EventRouting() {
     }
 
-    @Override
-    public void publish(DomainEvent event) {
-        kafkaTemplate.send(KafkaTopics.ACCOUNT_EVENTS, partitionKey(event), event);
+    static String topicFor(DomainEvent event) {
+        return KafkaTopics.ACCOUNT_EVENTS;
     }
 
-    private String partitionKey(DomainEvent event) {
+    static String keyFor(DomainEvent event) {
         return switch (event) {
             case MoneyDebited e -> e.accountId().toString();
             case DebitFailed e -> e.accountId().toString();
