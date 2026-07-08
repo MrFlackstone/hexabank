@@ -1,5 +1,6 @@
 package com.hexabank.transfer.infrastructure.rest;
 
+import com.hexabank.transfer.application.exception.IdempotencyConflictException;
 import com.hexabank.transfer.domain.exception.AccountNotFoundException;
 import com.hexabank.transfer.domain.exception.InvalidTransferStateException;
 import com.hexabank.transfer.domain.exception.TransferNotFoundException;
@@ -25,6 +26,12 @@ public class RestExceptionHandler {
     @ExceptionHandler(InvalidTransferStateException.class)
     public ProblemDetail handleInvalidState(InvalidTransferStateException ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    /** Idempotency-Key reutilizada con un payload distinto → 422 Unprocessable Entity. */
+    @ExceptionHandler(IdempotencyConflictException.class)
+    public ProblemDetail handleIdempotencyConflict(IdempotencyConflictException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
     }
 
     /** Datos de entrada inválidos → 400 Bad Request. */

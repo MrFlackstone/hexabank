@@ -11,8 +11,11 @@ import com.hexabank.transfer.application.port.in.RequestTransferCommand;
 import com.hexabank.transfer.application.port.in.PageResult;
 import com.hexabank.transfer.application.port.in.TransferSearchQuery;
 import com.hexabank.transfer.application.port.in.TransferSort;
+import com.hexabank.transfer.application.exception.IdempotencyConflictException;
 import com.hexabank.transfer.application.port.out.AccountOwnershipPort;
 import com.hexabank.transfer.application.port.out.EventPublisherPort;
+import com.hexabank.transfer.application.port.out.IdempotencyStorePort;
+import com.hexabank.transfer.application.port.out.IdempotencyStorePort.StoredIdempotencyKey;
 import com.hexabank.transfer.application.port.out.LoadTransferPort;
 import com.hexabank.transfer.application.port.out.ProcessedEventPort;
 import com.hexabank.transfer.application.port.out.SaveTransferPort;
@@ -38,7 +41,9 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -63,6 +68,8 @@ class TransferServiceTest {
     AccountOwnershipPort accountOwnership;
     @Mock
     SearchTransfersPort searchTransfersPort;
+    @Mock
+    IdempotencyStorePort idempotencyStore;
 
     TransferService service;
 
@@ -74,7 +81,7 @@ class TransferServiceTest {
     @BeforeEach
     void setUp() {
         service = new TransferService(loadTransferPort, saveTransferPort, eventPublisher, processedEvents,
-                metrics, accountOwnership, searchTransfersPort);
+                metrics, accountOwnership, searchTransfersPort, idempotencyStore);
     }
 
     @Test
@@ -255,6 +262,47 @@ class TransferServiceTest {
         assertThat(capturePublished()).isInstanceOf(TransferFailed.class);
         verify(metrics).transferFailed();
         verify(metrics, never()).transferCompleted();
+    }
+
+    @Test
+    @DisplayName("requestTransfer con Idempotency-Key repetida devuelve el mismo transfer sin duplicar")
+    void requestTransferWithRepeatedKeyReturnsSameTransfer() {
+        String key = "cliente-key-123";
+        RequestTransferCommand command = new RequestTransferCommand(source, destination, new BigDecimal("50.00"));
+        when(saveTransferPort.save(any(Transfer.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(accountOwnership.ownerOf(source)).thenReturn(Optional.of("alice-sub"));
+        when(idempotencyStore.find(key)).thenReturn(Optional.empty());
+
+        Transfer first = service.requestTransfer(command, alice, key);
+
+        ArgumentCaptor<String> hashCaptor = ArgumentCaptor.forClass(String.class);
+        verify(idempotencyStore).save(eq(key), hashCaptor.capture(), eq(first.id().value()));
+
+        // Segundo intento: misma clave y payload → se devuelve el transfer existente, sin recrear.
+        when(idempotencyStore.find(key))
+                .thenReturn(Optional.of(new StoredIdempotencyKey(hashCaptor.getValue(), first.id().value())));
+        when(loadTransferPort.findById(any())).thenReturn(Optional.of(first));
+
+        Transfer second = service.requestTransfer(command, alice, key);
+
+        assertThat(second.id()).isEqualTo(first.id());
+        verify(saveTransferPort, times(1)).save(any(Transfer.class));
+        verify(eventPublisher, times(1)).publish(any());
+    }
+
+    @Test
+    @DisplayName("requestTransfer con Idempotency-Key reutilizada y payload distinto lanza conflicto (422)")
+    void requestTransferWithReusedKeyDifferentPayloadThrowsConflict() {
+        String key = "cliente-key-456";
+        RequestTransferCommand command = new RequestTransferCommand(source, destination, new BigDecimal("50.00"));
+        when(idempotencyStore.find(key))
+                .thenReturn(Optional.of(new StoredIdempotencyKey("hash-de-otro-payload", UUID.randomUUID())));
+
+        assertThatThrownBy(() -> service.requestTransfer(command, alice, key))
+                .isInstanceOf(IdempotencyConflictException.class);
+
+        verify(saveTransferPort, never()).save(any(Transfer.class));
+        verifyNoInteractions(eventPublisher);
     }
 
     private DomainEvent capturePublished() {

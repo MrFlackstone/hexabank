@@ -13,8 +13,11 @@ import com.hexabank.transfer.application.port.in.RequestTransferUseCase;
 import com.hexabank.transfer.application.port.in.SearchTransfersUseCase;
 import com.hexabank.transfer.application.port.in.TransferSagaUseCase;
 import com.hexabank.transfer.application.port.in.TransferSearchQuery;
+import com.hexabank.transfer.application.exception.IdempotencyConflictException;
 import com.hexabank.transfer.application.port.out.AccountOwnershipPort;
 import com.hexabank.transfer.application.port.out.EventPublisherPort;
+import com.hexabank.transfer.application.port.out.IdempotencyStorePort;
+import com.hexabank.transfer.application.port.out.IdempotencyStorePort.StoredIdempotencyKey;
 import com.hexabank.transfer.application.port.out.LoadTransferPort;
 import com.hexabank.transfer.application.port.out.ProcessedEventPort;
 import com.hexabank.transfer.application.port.out.SaveTransferPort;
@@ -27,6 +30,11 @@ import com.hexabank.transfer.domain.exception.AccountNotFoundException;
 import com.hexabank.transfer.domain.exception.TransferNotFoundException;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -48,6 +56,7 @@ public class TransferService implements RequestTransferUseCase, GetTransferUseCa
     private final TransferMetricsPort metrics;
     private final AccountOwnershipPort accountOwnership;
     private final SearchTransfersPort searchTransfersPort;
+    private final IdempotencyStorePort idempotencyStore;
 
     public TransferService(LoadTransferPort loadTransferPort,
                            SaveTransferPort saveTransferPort,
@@ -55,7 +64,8 @@ public class TransferService implements RequestTransferUseCase, GetTransferUseCa
                            ProcessedEventPort processedEvents,
                            TransferMetricsPort metrics,
                            AccountOwnershipPort accountOwnership,
-                           SearchTransfersPort searchTransfersPort) {
+                           SearchTransfersPort searchTransfersPort,
+                           IdempotencyStorePort idempotencyStore) {
         this.loadTransferPort = loadTransferPort;
         this.saveTransferPort = saveTransferPort;
         this.eventPublisher = eventPublisher;
@@ -63,17 +73,51 @@ public class TransferService implements RequestTransferUseCase, GetTransferUseCa
         this.metrics = metrics;
         this.accountOwnership = accountOwnership;
         this.searchTransfersPort = searchTransfersPort;
+        this.idempotencyStore = idempotencyStore;
     }
 
     @Override
     @Transactional
-    public Transfer requestTransfer(RequestTransferCommand command, CallerContext caller) {
+    public Transfer requestTransfer(RequestTransferCommand command, CallerContext caller, String idempotencyKey) {
+        if (idempotencyKey == null || idempotencyKey.isBlank()) {
+            return createTransfer(command, caller);
+        }
+        String requestHash = hash(command);
+        Optional<StoredIdempotencyKey> existing = idempotencyStore.find(idempotencyKey);
+        if (existing.isPresent()) {
+            if (!existing.get().requestHash().equals(requestHash)) {
+                throw new IdempotencyConflictException(idempotencyKey);
+            }
+            // Reintento con la misma clave y payload: se devuelve el transfer ya creado, sin duplicar.
+            return load(new TransferId(existing.get().transferId()));
+        }
+        Transfer transfer = createTransfer(command, caller);
+        // La PK única de la clave aísla la carrera concurrente: si otra petición con la misma clave
+        // gana, este insert falla y toda la transacción (transfer + outbox) hace rollback → sin duplicado.
+        idempotencyStore.save(idempotencyKey, requestHash, transfer.id().value());
+        return transfer;
+    }
+
+    private Transfer createTransfer(RequestTransferCommand command, CallerContext caller) {
         requireSourceOwnedByCaller(command, caller);
         Transfer transfer = saveTransferPort.save(Transfer.request(
                 command.sourceAccountId(), command.destinationAccountId(), command.amount()));
         eventPublisher.publish(new DebitRequested(
                 UUID.randomUUID(), transfer.id().value(), transfer.sourceAccountId(), transfer.amount()));
         return transfer;
+    }
+
+    /** Huella SHA-256 (hex) del payload, para detectar el reúso de una clave con datos distintos. */
+    private String hash(RequestTransferCommand command) {
+        String canonical = command.sourceAccountId() + "|" + command.destinationAccountId()
+                + "|" + command.amount().stripTrailingZeros().toPlainString();
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(canonical.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 no disponible en la JVM", e);
+        }
     }
 
     @Override
