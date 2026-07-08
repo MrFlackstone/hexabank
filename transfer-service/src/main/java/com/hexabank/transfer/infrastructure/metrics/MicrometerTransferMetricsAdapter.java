@@ -14,6 +14,7 @@ public class MicrometerTransferMetricsAdapter implements TransferMetricsPort {
 
     private final Counter completedCounter;
     private final Counter failedCounter;
+    private final Counter reapedCounter;
 
     public MicrometerTransferMetricsAdapter(MeterRegistry meterRegistry) {
         this.completedCounter = Counter.builder("hexabank.transfers.completed")
@@ -21,6 +22,9 @@ public class MicrometerTransferMetricsAdapter implements TransferMetricsPort {
                 .register(meterRegistry);
         this.failedCounter = Counter.builder("hexabank.transfers.failed")
                 .description("Transferencias que han terminado en FAILED")
+                .register(meterRegistry);
+        this.reapedCounter = Counter.builder("hexabank.transfers.reaped")
+                .description("Sagas atascadas recuperadas por el reaper (timeout)")
                 .register(meterRegistry);
     }
 
@@ -32,5 +36,10 @@ public class MicrometerTransferMetricsAdapter implements TransferMetricsPort {
     @Override
     public void transferFailed() {
         failedCounter.increment();
+    }
+
+    @Override
+    public void sagaReaped() {
+        reapedCounter.increment();
     }
 }

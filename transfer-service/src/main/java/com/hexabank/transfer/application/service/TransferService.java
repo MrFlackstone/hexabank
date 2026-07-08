@@ -9,6 +9,7 @@ import com.hexabank.transfer.application.port.in.CallerContext;
 import com.hexabank.transfer.application.port.in.GetTransferUseCase;
 import com.hexabank.transfer.application.port.in.PageResult;
 import com.hexabank.transfer.application.port.in.RequestTransferCommand;
+import com.hexabank.transfer.application.port.in.ReapStaleTransfersUseCase;
 import com.hexabank.transfer.application.port.in.RequestTransferUseCase;
 import com.hexabank.transfer.application.port.in.SearchTransfersUseCase;
 import com.hexabank.transfer.application.port.in.TransferSagaUseCase;
@@ -22,10 +23,12 @@ import com.hexabank.transfer.application.port.out.LoadTransferPort;
 import com.hexabank.transfer.application.port.out.ProcessedEventPort;
 import com.hexabank.transfer.application.port.out.SaveTransferPort;
 import com.hexabank.transfer.application.port.out.SearchTransfersPort;
+import com.hexabank.transfer.application.port.out.StaleTransferPort;
 import com.hexabank.transfer.application.port.out.TransferMetricsPort;
 import com.hexabank.transfer.application.port.out.TransferSearchCriteria;
 import com.hexabank.transfer.domain.Transfer;
 import com.hexabank.transfer.domain.TransferId;
+import com.hexabank.transfer.domain.TransferStatus;
 import com.hexabank.transfer.domain.exception.AccountNotFoundException;
 import com.hexabank.transfer.domain.exception.TransferNotFoundException;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,7 +36,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -47,7 +52,11 @@ import java.util.UUID;
  * en una transacción que abarca el cambio de estado y el registro de idempotencia.</p>
  */
 public class TransferService implements RequestTransferUseCase, GetTransferUseCase,
-        SearchTransfersUseCase, TransferSagaUseCase {
+        SearchTransfersUseCase, TransferSagaUseCase, ReapStaleTransfersUseCase {
+
+    /** Estados no terminales que el reaper vigila. */
+    private static final Set<TransferStatus> NON_TERMINAL_STATES =
+            Set.of(TransferStatus.PENDING, TransferStatus.DEBITED, TransferStatus.COMPENSATING);
 
     private final LoadTransferPort loadTransferPort;
     private final SaveTransferPort saveTransferPort;
@@ -57,6 +66,7 @@ public class TransferService implements RequestTransferUseCase, GetTransferUseCa
     private final AccountOwnershipPort accountOwnership;
     private final SearchTransfersPort searchTransfersPort;
     private final IdempotencyStorePort idempotencyStore;
+    private final StaleTransferPort staleTransferPort;
 
     public TransferService(LoadTransferPort loadTransferPort,
                            SaveTransferPort saveTransferPort,
@@ -65,7 +75,8 @@ public class TransferService implements RequestTransferUseCase, GetTransferUseCa
                            TransferMetricsPort metrics,
                            AccountOwnershipPort accountOwnership,
                            SearchTransfersPort searchTransfersPort,
-                           IdempotencyStorePort idempotencyStore) {
+                           IdempotencyStorePort idempotencyStore,
+                           StaleTransferPort staleTransferPort) {
         this.loadTransferPort = loadTransferPort;
         this.saveTransferPort = saveTransferPort;
         this.eventPublisher = eventPublisher;
@@ -74,6 +85,7 @@ public class TransferService implements RequestTransferUseCase, GetTransferUseCa
         this.accountOwnership = accountOwnership;
         this.searchTransfersPort = searchTransfersPort;
         this.idempotencyStore = idempotencyStore;
+        this.staleTransferPort = staleTransferPort;
     }
 
     @Override
@@ -118,6 +130,49 @@ public class TransferService implements RequestTransferUseCase, GetTransferUseCa
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 no disponible en la JVM", e);
         }
+    }
+
+    /**
+     * Recupera las sagas atascadas creadas antes de {@code olderThan}, forzando la transición segura
+     * según su estado no terminal:
+     * <ul>
+     *   <li>{@code PENDING}: nunca llegó respuesta al débito → se marca {@code FAILED} (aún no se movió
+     *       dinero en el caso de timeout esperado).</li>
+     *   <li>{@code DEBITED}: se debitó pero el crédito no confirmó → se compensa emitiendo
+     *       {@code RefundRequested}.</li>
+     *   <li>{@code COMPENSATING}: el reembolso no confirmó → se reemite {@code RefundRequested}. El
+     *       reembolso de account-service es idempotente por {@code transferId}, así que reemitir no
+     *       duplica el abono.</li>
+     * </ul>
+     */
+    @Override
+    @Transactional
+    public int reapStaleTransfers(Instant olderThan) {
+        List<Transfer> stale = staleTransferPort.findStale(NON_TERMINAL_STATES, olderThan);
+        for (Transfer transfer : stale) {
+            switch (transfer.status()) {
+                case PENDING -> {
+                    transfer.markDebitFailed();
+                    saveTransferPort.save(transfer);
+                    metrics.transferFailed();
+                    eventPublisher.publish(new TransferFailed(UUID.randomUUID(), transfer.id().value(),
+                            "Saga expirada: sin respuesta al débito dentro del plazo"));
+                }
+                case DEBITED -> {
+                    transfer.markCompensating();
+                    saveTransferPort.save(transfer);
+                    eventPublisher.publish(new RefundRequested(UUID.randomUUID(), transfer.id().value(),
+                            transfer.sourceAccountId(), transfer.amount()));
+                }
+                case COMPENSATING -> eventPublisher.publish(new RefundRequested(UUID.randomUUID(),
+                        transfer.id().value(), transfer.sourceAccountId(), transfer.amount()));
+                default -> {
+                    // Estados terminales: el reaper no los selecciona; nada que hacer.
+                }
+            }
+            metrics.sagaReaped();
+        }
+        return stale.size();
     }
 
     @Override

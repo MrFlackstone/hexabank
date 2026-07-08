@@ -4,6 +4,7 @@ import com.hexabank.account.application.port.in.AccountCommand;
 import com.hexabank.account.application.port.out.EventPublisherPort;
 import com.hexabank.account.application.port.out.LoadAccountPort;
 import com.hexabank.account.application.port.out.ProcessedEventPort;
+import com.hexabank.account.application.port.out.RefundedTransferPort;
 import com.hexabank.account.application.port.out.SaveAccountPort;
 import com.hexabank.account.domain.Account;
 import com.hexabank.account.domain.AccountId;
@@ -12,6 +13,7 @@ import com.hexabank.account.domain.OwnerId;
 import com.hexabank.shared.events.DebitFailed;
 import com.hexabank.shared.events.DomainEvent;
 import com.hexabank.shared.events.MoneyDebited;
+import com.hexabank.shared.events.MoneyRefunded;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -46,6 +48,8 @@ class AccountCommandServiceTest {
     EventPublisherPort eventPublisher;
     @Mock
     ProcessedEventPort processedEvents;
+    @Mock
+    RefundedTransferPort refundedTransfers;
 
     AccountCommandService service;
 
@@ -55,7 +59,8 @@ class AccountCommandServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new AccountCommandService(loadAccountPort, saveAccountPort, eventPublisher, processedEvents);
+        service = new AccountCommandService(loadAccountPort, saveAccountPort, eventPublisher, processedEvents,
+                refundedTransfers);
     }
 
     @Test
@@ -97,6 +102,33 @@ class AccountCommandServiceTest {
 
         verifyNoInteractions(loadAccountPort, saveAccountPort, eventPublisher);
         verify(processedEvents, never()).markProcessed(any());
+    }
+
+    @Test
+    @DisplayName("refund abona una vez, marca la transferencia y publica MoneyRefunded")
+    void refundCreditsOnceAndMarksTransfer() {
+        when(processedEvents.alreadyProcessed(eventId)).thenReturn(false);
+        when(refundedTransfers.alreadyRefunded(transferId)).thenReturn(false);
+        when(loadAccountPort.findById(any(AccountId.class))).thenReturn(Optional.of(account("100.00")));
+
+        service.refund(command(new BigDecimal("40.00")));
+
+        verify(saveAccountPort).save(any(Account.class));
+        verify(refundedTransfers).markRefunded(transferId);
+        assertThat(capturePublished()).isInstanceOf(MoneyRefunded.class);
+    }
+
+    @Test
+    @DisplayName("refund de una transferencia ya reembolsada se absorbe sin doble abono")
+    void refundAlreadyRefundedIsAbsorbed() {
+        when(processedEvents.alreadyProcessed(eventId)).thenReturn(false);
+        when(refundedTransfers.alreadyRefunded(transferId)).thenReturn(true);
+
+        service.refund(command(new BigDecimal("40.00")));
+
+        verifyNoInteractions(loadAccountPort, saveAccountPort, eventPublisher);
+        verify(processedEvents).markProcessed(eventId);
+        verify(refundedTransfers, never()).markRefunded(any());
     }
 
     private Account account(String balance) {

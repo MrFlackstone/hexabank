@@ -26,6 +26,12 @@ spring:
         jwt:
           issuer-uri: http://keycloak:8080/realms/hexabank
 
+# Resiliencia de la saga (Fase 10). Cadencia del relay que publica a Kafka los eventos pendientes
+# en la tabla outbox tras el commit.
+hexabank:
+  outbox:
+    poll-interval-ms: 200
+
 server:
   port: 8081
 

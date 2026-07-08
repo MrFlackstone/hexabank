@@ -4,6 +4,7 @@ import com.hexabank.transfer.application.port.in.PageResult;
 import com.hexabank.transfer.application.port.out.LoadTransferPort;
 import com.hexabank.transfer.application.port.out.SaveTransferPort;
 import com.hexabank.transfer.application.port.out.SearchTransfersPort;
+import com.hexabank.transfer.application.port.out.StaleTransferPort;
 import com.hexabank.transfer.application.port.out.TransferSearchCriteria;
 import com.hexabank.transfer.domain.Transfer;
 import com.hexabank.transfer.domain.TransferId;
@@ -14,7 +15,12 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Adaptador de salida que implementa los puertos de persistencia del dominio sobre Spring Data JPA.
@@ -23,7 +29,8 @@ import java.util.Optional;
  * y las búsquedas paginadas de {@link SearchTransfersPort} a Specifications + {@code PageRequest}.</p>
  */
 @Component
-public class TransferPersistenceAdapter implements LoadTransferPort, SaveTransferPort, SearchTransfersPort {
+public class TransferPersistenceAdapter
+        implements LoadTransferPort, SaveTransferPort, SearchTransfersPort, StaleTransferPort {
 
     private final TransferJpaRepository repository;
 
@@ -34,6 +41,15 @@ public class TransferPersistenceAdapter implements LoadTransferPort, SaveTransfe
     @Override
     public Optional<Transfer> findById(TransferId id) {
         return repository.findById(id.value()).map(this::toDomain);
+    }
+
+    @Override
+    public List<Transfer> findStale(Set<TransferStatus> statuses, Instant olderThan) {
+        List<String> statusNames = statuses.stream().map(Enum::name).toList();
+        OffsetDateTime cutoff = olderThan.atOffset(ZoneOffset.UTC);
+        return repository.findByStatusInAndCreatedAtBefore(statusNames, cutoff).stream()
+                .map(this::toDomain)
+                .toList();
     }
 
     @Override

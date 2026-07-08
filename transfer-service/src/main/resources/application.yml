@@ -26,6 +26,17 @@ spring:
         jwt:
           issuer-uri: http://keycloak:8080/realms/hexabank
 
+# Resiliencia de la saga (Fase 10). outbox.poll-interval-ms: cadencia del relay que publica los
+# eventos pendientes. saga.timeout: antigüedad a partir de la cual una saga no terminal se considera
+# atascada; saga.reaper.poll-interval-ms: cadencia del reaper que la recupera.
+hexabank:
+  outbox:
+    poll-interval-ms: 200
+  saga:
+    timeout: PT30S
+    reaper:
+      poll-interval-ms: 5000
+
 server:
   port: 8082
 

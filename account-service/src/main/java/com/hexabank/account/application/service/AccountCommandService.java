@@ -7,6 +7,7 @@ import com.hexabank.account.application.port.in.RefundAccountUseCase;
 import com.hexabank.account.application.port.out.EventPublisherPort;
 import com.hexabank.account.application.port.out.LoadAccountPort;
 import com.hexabank.account.application.port.out.ProcessedEventPort;
+import com.hexabank.account.application.port.out.RefundedTransferPort;
 import com.hexabank.account.application.port.out.SaveAccountPort;
 import com.hexabank.account.domain.Account;
 import com.hexabank.account.domain.AccountId;
@@ -34,15 +35,18 @@ public class AccountCommandService implements DebitAccountUseCase, CreditAccount
     private final SaveAccountPort saveAccountPort;
     private final EventPublisherPort eventPublisher;
     private final ProcessedEventPort processedEvents;
+    private final RefundedTransferPort refundedTransfers;
 
     public AccountCommandService(LoadAccountPort loadAccountPort,
                                  SaveAccountPort saveAccountPort,
                                  EventPublisherPort eventPublisher,
-                                 ProcessedEventPort processedEvents) {
+                                 ProcessedEventPort processedEvents,
+                                 RefundedTransferPort refundedTransfers) {
         this.loadAccountPort = loadAccountPort;
         this.saveAccountPort = saveAccountPort;
         this.eventPublisher = eventPublisher;
         this.processedEvents = processedEvents;
+        this.refundedTransfers = refundedTransfers;
     }
 
     /** Debita el importe y publica {@link MoneyDebited}, o {@link DebitFailed} si no hay fondos. */
@@ -82,17 +86,28 @@ public class AccountCommandService implements DebitAccountUseCase, CreditAccount
                 UUID.randomUUID(), command.transferId(), command.accountId(), command.amount()));
     }
 
-    /** Devuelve el importe a la cuenta (compensación) y publica {@link MoneyRefunded}. */
+    /**
+     * Devuelve el importe a la cuenta (compensación) y publica {@link MoneyRefunded}.
+     *
+     * <p>Idempotente por transferencia además de por {@code eventId}: si la transferencia ya se
+     * reembolsó (p. ej. una reemisión de {@code RefundRequested} por el reaper), se absorbe el
+     * comando sin volver a abonar ni republicar, evitando el doble reembolso.</p>
+     */
     @Override
     @Transactional
     public void refund(AccountCommand command) {
         if (processedEvents.alreadyProcessed(command.eventId())) {
             return;
         }
+        if (refundedTransfers.alreadyRefunded(command.transferId())) {
+            processedEvents.markProcessed(command.eventId());
+            return;
+        }
         Account account = loadAccount(command.accountId());
         account.credit(Money.of(command.amount()));
         saveAccountPort.save(account);
         processedEvents.markProcessed(command.eventId());
+        refundedTransfers.markRefunded(command.transferId());
         eventPublisher.publish(new MoneyRefunded(
                 UUID.randomUUID(), command.transferId(), command.accountId(), command.amount()));
     }

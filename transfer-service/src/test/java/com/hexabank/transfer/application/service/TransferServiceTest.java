@@ -20,6 +20,7 @@ import com.hexabank.transfer.application.port.out.LoadTransferPort;
 import com.hexabank.transfer.application.port.out.ProcessedEventPort;
 import com.hexabank.transfer.application.port.out.SaveTransferPort;
 import com.hexabank.transfer.application.port.out.SearchTransfersPort;
+import com.hexabank.transfer.application.port.out.StaleTransferPort;
 import com.hexabank.transfer.application.port.out.TransferMetricsPort;
 import com.hexabank.transfer.application.port.out.TransferSearchCriteria;
 import com.hexabank.transfer.domain.Transfer;
@@ -35,6 +36,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -70,6 +73,8 @@ class TransferServiceTest {
     SearchTransfersPort searchTransfersPort;
     @Mock
     IdempotencyStorePort idempotencyStore;
+    @Mock
+    StaleTransferPort staleTransferPort;
 
     TransferService service;
 
@@ -81,7 +86,7 @@ class TransferServiceTest {
     @BeforeEach
     void setUp() {
         service = new TransferService(loadTransferPort, saveTransferPort, eventPublisher, processedEvents,
-                metrics, accountOwnership, searchTransfersPort, idempotencyStore);
+                metrics, accountOwnership, searchTransfersPort, idempotencyStore, staleTransferPort);
     }
 
     @Test
@@ -303,6 +308,53 @@ class TransferServiceTest {
 
         verify(saveTransferPort, never()).save(any(Transfer.class));
         verifyNoInteractions(eventPublisher);
+    }
+
+    @Test
+    @DisplayName("reaper: PENDING atascada se marca FAILED y publica TransferFailed")
+    void reaperFailsStalePending() {
+        Transfer pending = Transfer.request(source, destination, new BigDecimal("50.00"));
+        when(staleTransferPort.findStale(any(), any())).thenReturn(List.of(pending));
+
+        int reaped = service.reapStaleTransfers(Instant.now());
+
+        assertThat(reaped).isEqualTo(1);
+        assertThat(pending.status()).isEqualTo(TransferStatus.FAILED);
+        assertThat(capturePublished()).isInstanceOf(TransferFailed.class);
+        verify(saveTransferPort).save(pending);
+        verify(metrics).sagaReaped();
+    }
+
+    @Test
+    @DisplayName("reaper: DEBITED atascada compensa y publica RefundRequested")
+    void reaperCompensatesStaleDebited() {
+        Transfer debited = Transfer.request(source, destination, new BigDecimal("50.00"));
+        debited.markDebited();
+        when(staleTransferPort.findStale(any(), any())).thenReturn(List.of(debited));
+
+        service.reapStaleTransfers(Instant.now());
+
+        assertThat(debited.status()).isEqualTo(TransferStatus.COMPENSATING);
+        DomainEvent published = capturePublished();
+        assertThat(published).isInstanceOf(RefundRequested.class);
+        assertThat(((RefundRequested) published).accountId()).isEqualTo(source);
+        verify(metrics).sagaReaped();
+    }
+
+    @Test
+    @DisplayName("reaper: COMPENSATING atascada reemite RefundRequested sin cambiar de estado")
+    void reaperReemitsRefundForStaleCompensating() {
+        Transfer compensating = Transfer.request(source, destination, new BigDecimal("50.00"));
+        compensating.markDebited();
+        compensating.markCompensating();
+        when(staleTransferPort.findStale(any(), any())).thenReturn(List.of(compensating));
+
+        service.reapStaleTransfers(Instant.now());
+
+        assertThat(compensating.status()).isEqualTo(TransferStatus.COMPENSATING);
+        assertThat(capturePublished()).isInstanceOf(RefundRequested.class);
+        verify(saveTransferPort, never()).save(any(Transfer.class));
+        verify(metrics).sagaReaped();
     }
 
     private DomainEvent capturePublished() {

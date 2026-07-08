@@ -12,4 +12,7 @@ public interface TransferMetricsPort {
 
     /** Una transferencia ha terminado en FAILED (débito rechazado o crédito revertido). */
     void transferFailed();
+
+    /** El reaper ha recuperado una saga atascada (timeout en un estado no terminal). */
+    void sagaReaped();
 }

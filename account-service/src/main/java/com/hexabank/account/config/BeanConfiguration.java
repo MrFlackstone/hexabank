@@ -3,6 +3,7 @@ package com.hexabank.account.config;
 import com.hexabank.account.application.port.out.EventPublisherPort;
 import com.hexabank.account.application.port.out.LoadAccountPort;
 import com.hexabank.account.application.port.out.ProcessedEventPort;
+import com.hexabank.account.application.port.out.RefundedTransferPort;
 import com.hexabank.account.application.port.out.SaveAccountPort;
 import com.hexabank.account.application.service.AccountCommandService;
 import com.hexabank.account.application.service.AccountService;
@@ -28,7 +29,9 @@ public class BeanConfiguration {
     AccountCommandService accountCommandService(LoadAccountPort loadAccountPort,
                                                 SaveAccountPort saveAccountPort,
                                                 EventPublisherPort eventPublisherPort,
-                                                ProcessedEventPort processedEventPort) {
-        return new AccountCommandService(loadAccountPort, saveAccountPort, eventPublisherPort, processedEventPort);
+                                                ProcessedEventPort processedEventPort,
+                                                RefundedTransferPort refundedTransferPort) {
+        return new AccountCommandService(loadAccountPort, saveAccountPort, eventPublisherPort,
+                processedEventPort, refundedTransferPort);
     }
 }
