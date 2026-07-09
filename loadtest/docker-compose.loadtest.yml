@@ -1,0 +1,13 @@
+# Override para las pruebas de carga / benchmark (Fase 11).
+#
+# Desactiva el rate limiting de transfer-service para que la ráfaga concurrente de k6 no se estrangule:
+# la prueba mide la concurrencia real de la saga (cero sobregiro) y el throughput de los virtual
+# threads, no la política de rate limiting (que ya cubre su test unitario).
+#
+# Uso:
+#   docker compose -f docker-compose.yml -f loadtest/docker-compose.loadtest.yml up -d --build
+#
+services:
+  transfer-service:
+    environment:
+      HEXABANK_RATELIMIT_ENABLED: "false"
