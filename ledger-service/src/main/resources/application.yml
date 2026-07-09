@@ -1,6 +1,11 @@
 spring:
   application:
     name: ledger-service
+  # Fase 11: virtual threads (Java 21). Cada peticion HTTP se atiende en un hilo virtual -> escala a
+  # miles de conexiones concurrentes con memoria minima; el bloqueo en JDBC/Kafka no cuesta un hilo de SO.
+  threads:
+    virtual:
+      enabled: true
   datasource:
     url: jdbc:postgresql://localhost:5444/ledgerdb
     username: hexabank
