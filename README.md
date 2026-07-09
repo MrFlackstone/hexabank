@@ -27,7 +27,9 @@ como showcase técnico de arquitectura hexagonal, comunicación event-driven y c
 - **Consistencia y resiliencia de la saga**: **patrón outbox** (publicación transaccional, cierra el
   dual-write), **Idempotency-Key** opcional en `POST /transfers` (deduplica reintentos de cliente) y un
   **reaper** que recupera las sagas atascadas (timeout → compensación / fallo).
-- **Concurrencia**: bloqueo optimista (`@Version`) y orden por clave de partición (`accountId`).
+- **Concurrencia**: bloqueo optimista (`@Version`) y orden por clave de partición (`accountId`);
+  **virtual threads** (Java 21) para escalar peticiones concurrentes, **rate limiting** por principal
+  (Bucket4j) en `POST /transfers` y una **prueba de carga k6** que verifica cero sobregiro bajo ráfaga.
 - **Observabilidad**: métricas técnicas (latencia HTTP, consumer lag de Kafka) y de negocio
   (transferencias completadas/fallidas) en Prometheus, visualizadas en un dashboard de Grafana.
 
@@ -253,7 +255,36 @@ en GitHub Actions (dos jobs en paralelo):
   corren igual que en local, sin configurar servicios externos.
 - **frontend** — `npm ci && npm run build` (type-check con `tsc` + bundle con Vite).
 
+Además, un tercer job **loadtest** (prueba de carga k6) **no corre en cada PR**: solo a demanda
+(`workflow_dispatch`) o al integrar en `main`, porque levanta el stack completo por Compose. Los PRs
+siguen cubiertos por los Testcontainers del job _backend_.
+
 El badge de arriba refleja el estado de la rama `main`.
+
+## Benchmark: virtual threads
+
+Los 3 servicios corren con **virtual threads** (`spring.threads.virtual.enabled=true`, Java 21). Para
+medir su efecto, la prueba de carga k6 (`loadtest/concurrent-transfers.js`) dispara **300 transferencias
+concurrentes** sobre la misma cuenta (saldo suficiente para que todas completen) con y sin virtual
+threads. Se compara la latencia de las peticiones HTTP (`http_req_duration`, dominada por los 300
+`POST /transfers` simultáneos). El rate limiting se desactiva en el benchmark para no estrangular la
+ráfaga y aislar el efecto de los hilos.
+
+| Configuración                 | media  | mediana | p95    | máx    |
+| ----------------------------- | ------ | ------- | ------ | ------ |
+| Sin virtual threads (platform) | 465 ms | 551 ms  | 635 ms | 680 ms |
+| Con virtual threads            | 135 ms | 148 ms  | 212 ms | 268 ms |
+
+Con 300 peticiones simultáneas —por encima del pool de 200 hilos de plataforma de Tomcat— los virtual
+threads recortan la latencia p95 **~3×**: sin ellos, las peticiones que exceden el pool esperan a que se
+libere un hilo; con ellos, cada petición corre en su propio hilo virtual. En ambos casos las 300
+transferencias liquidan con **cero sobregiro** y saldo final exacto (garantía de concurrencia:
+bloqueo optimista + consumidores idempotentes). Medido en local (Docker Compose); cifras orientativas.
+
+> Reproducir: `docker compose -f docker-compose.yml -f loadtest/docker-compose.loadtest.yml up -d --build`
+> y `docker run --rm --network host -v "$PWD/loadtest:/loadtest" grafana/k6 run /loadtest/concurrent-transfers.js`
+> (con `N=300 INITIAL_BALANCE=3000`). Para la comparativa, recrear los servicios con
+> `SPRING_THREADS_VIRTUAL_ENABLED=false`.
 
 ## Mapeo requisito → implementación
 
@@ -265,7 +296,7 @@ Cómo cada requisito de la oferta se materializa en el código:
 | **APIs REST** | Controllers en `infrastructure/rest` con DTOs + Bean Validation; errores como `ProblemDetail` (`RestExceptionHandler`) |
 | **Arquitectura hexagonal + SOLID** | `domain`/`application` sin framework; puertos segregados en `port/in` y `port/out`; adaptadores en `infrastructure`; wiring explícito en `config/BeanConfiguration` (inversión de dependencias real) |
 | **Kafka / event-driven** | Saga de orquestación sobre topics particionados (`account-commands`/`account-events`/`transfer-events`); `@KafkaListener` + `KafkaTemplate`; máquina de estados con **compensación** (`RefundRequested`) |
-| **Alta concurrencia** | Bloqueo optimista `@Version` + `saveAndFlush`; consumidores **idempotentes** (`processed_events` por `eventId`) frente al at-least-once; orden por clave de partición; servicios stateless |
+| **Alta concurrencia** | Bloqueo optimista `@Version` + `saveAndFlush`; consumidores **idempotentes** (`processed_events` por `eventId`) frente al at-least-once; orden por clave de partición; servicios stateless; **virtual threads** (Java 21) en los 3 servicios; **rate limiting** por principal (Bucket4j) en `POST /transfers`; **prueba de carga k6** (`loadtest/`) de N transferencias concurrentes con aserción de cero sobregiro |
 | **Robustez del consumidor** | `DefaultErrorHandler` + `DeadLetterPublishingRecoverer` con backoff → `*.DLT` para mensajes irrecuperables |
 | **Resiliencia de la saga** | **Outbox** transaccional (relay `@Scheduled`, cierra el dual-write) en transfer + account; **Idempotency-Key** opcional en `POST /transfers`; **reaper** `@Scheduled` de sagas atascadas (`PENDING`/`DEBITED`/`COMPENSATING` → transición segura) con reembolso idempotente por `transferId` |
 | **CI + revisión de código** | GitHub Actions (`ci.yml`) en cada push/PR; el trabajo entra por Pull Requests |
@@ -275,10 +306,10 @@ Cómo cada requisito de la oferta se materializa en el código:
 
 ## Roadmap
 
-Auth end-to-end (Keycloak OIDC, ownership + roles, login del frontend) y **resiliencia de la saga**
-(patrón outbox, Idempotency-Key, DLT con retry/backoff y reaper) ya implementados. Siguientes
-incrementos hacia un diseño de producción:
+Auth end-to-end (Keycloak OIDC, ownership + roles, login del frontend), **resiliencia de la saga**
+(patrón outbox, Idempotency-Key, DLT con retry/backoff y reaper) y **concurrencia demostrable**
+(virtual threads, rate limiting, prueba de carga k6) ya implementados. Siguientes incrementos hacia un
+diseño de producción:
 
-- **Concurrencia demostrable** — virtual threads, rate limiting, prueba de carga k6 en CI.
 - **Tracing distribuido** — Micrometer Tracing + Tempo/Jaeger, propagación de contexto por Kafka.
 - **Contratos** — OpenAPI/Swagger, contract testing y Schema Registry (Avro) para eventos.
