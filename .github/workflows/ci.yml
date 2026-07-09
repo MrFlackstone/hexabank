@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:   # permite lanzar la prueba de carga k6 a demanda
 
 # Cancela ejecuciones en curso de la misma rama/PR cuando llega un push nuevo.
 concurrency:
@@ -56,3 +57,50 @@ jobs:
 
       - name: Type-check and build
         run: npm run build
+
+  # Prueba de carga k6 (Fase 11): levanta el stack por compose y dispara N transferencias
+  # concurrentes sobre la misma cuenta, verificando cero sobregiro. Es cara (build + stack completo),
+  # asi que NO corre en cada PR: solo a demanda (workflow_dispatch) o al integrar en main.
+  loadtest:
+    name: Load test (k6 concurrencia)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    steps:
+      - uses: actions/checkout@v4
+
+      # Rate limiting desactivado (override) para no estrangular la rafaga; se aisla la concurrencia.
+      - name: Start stack
+        run: docker compose -f docker-compose.yml -f loadtest/docker-compose.loadtest.yml up -d --build account-service transfer-service ledger-service
+
+      # Los servicios backend y Keycloak no declaran healthcheck en compose -> se sondea aqui.
+      - name: Wait for readiness
+        run: |
+          wait_for() {
+            for i in $(seq 1 60); do
+              if curl -sf "$1" >/dev/null 2>&1; then echo "ready: $1"; return 0; fi
+              sleep 5
+            done
+            echo "timeout esperando $1"; return 1
+          }
+          wait_for http://localhost:8081/actuator/health
+          wait_for http://localhost:8082/actuator/health
+          wait_for http://localhost:8083/actuator/health
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8180/realms/hexabank/protocol/openid-connect/token \
+                 -d grant_type=password -d client_id=hexabank-frontend \
+                 -d username=alice -d password=alice >/dev/null 2>&1; then
+              echo "keycloak ready"; break
+            fi
+            sleep 5
+          done
+
+      - name: Run k6 concurrent-transfers
+        run: docker run --rm --network host -v "$PWD/loadtest:/loadtest" grafana/k6 run /loadtest/concurrent-transfers.js
+
+      - name: Dump service logs on failure
+        if: failure()
+        run: docker compose logs --tail=200 account-service transfer-service ledger-service
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f docker-compose.yml -f loadtest/docker-compose.loadtest.yml down -v
