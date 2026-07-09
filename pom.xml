@@ -28,6 +28,8 @@
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <spring-boot.version>3.5.15</spring-boot.version>
+        <!-- Bucket4j (rate limiting, Fase 11): no esta en el BOM de Spring Boot -> version explicita. -->
+        <bucket4j.version>8.19.0</bucket4j.version>
     </properties>
 
     <modules>
@@ -47,6 +49,12 @@
                 <version>${spring-boot.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+            <!-- Rate limiting por token-bucket (Fase 11). Variante jdk17-core: en memoria, sin cluster. -->
+            <dependency>
+                <groupId>com.bucket4j</groupId>
+                <artifactId>bucket4j_jdk17-core</artifactId>
+                <version>${bucket4j.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

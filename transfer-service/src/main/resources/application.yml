@@ -41,6 +41,13 @@ hexabank:
     timeout: PT30S
     reaper:
       poll-interval-ms: 5000
+  # Rate limiting por principal en POST /transfers (Fase 11). enabled=false lo desactiva para el
+  # benchmark/carga k6 (aisla el efecto de los virtual threads). STAFF queda exento en el filtro.
+  ratelimit:
+    enabled: true
+    capacity: 50
+    refill-tokens: 50
+    refill-period: PT1S
 
 server:
   port: 8082

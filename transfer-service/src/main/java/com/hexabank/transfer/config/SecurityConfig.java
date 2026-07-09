@@ -1,7 +1,12 @@
 package com.hexabank.transfer.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hexabank.transfer.infrastructure.ratelimit.PrincipalRateLimiter;
+import com.hexabank.transfer.infrastructure.ratelimit.RateLimitFilter;
+import com.hexabank.transfer.infrastructure.ratelimit.RateLimitProperties;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
@@ -18,6 +23,7 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 
 import java.util.Collection;
@@ -39,12 +45,13 @@ import java.util.Map;
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
+@EnableConfigurationProperties(RateLimitProperties.class)
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 @Profile("!test")
 public class SecurityConfig {
 
     @Bean
-    SecurityFilterChain filterChain(HttpSecurity http, JwtDecoder jwtDecoder) throws Exception {
+    SecurityFilterChain filterChain(HttpSecurity http, JwtDecoder jwtDecoder, RateLimitFilter rateLimitFilter) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -53,8 +60,22 @@ public class SecurityConfig {
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt
                         .decoder(jwtDecoder)
-                        .jwtAuthenticationConverter(jwtAuthenticationConverter())));
+                        .jwtAuthenticationConverter(jwtAuthenticationConverter())))
+                // Rate limiting tras la autenticacion: el principal ya esta resuelto para las cuentas por sub.
+                .addFilterAfter(rateLimitFilter, BearerTokenAuthenticationFilter.class);
         return http.build();
+    }
+
+    @Bean
+    PrincipalRateLimiter principalRateLimiter(RateLimitProperties properties) {
+        return new PrincipalRateLimiter(properties);
+    }
+
+    @Bean
+    RateLimitFilter rateLimitFilter(RateLimitProperties properties,
+                                    PrincipalRateLimiter rateLimiter,
+                                    ObjectMapper objectMapper) {
+        return new RateLimitFilter(properties, rateLimiter, objectMapper);
     }
 
     /**
