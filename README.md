@@ -31,14 +31,16 @@ como showcase técnico de arquitectura hexagonal, comunicación event-driven y c
   **virtual threads** (Java 21) para escalar peticiones concurrentes, **rate limiting** por principal
   (Bucket4j) en `POST /transfers` y una **prueba de carga k6** que verifica cero sobregiro bajo ráfaga.
 - **Observabilidad**: métricas técnicas (latencia HTTP, consumer lag de Kafka) y de negocio
-  (transferencias completadas/fallidas) en Prometheus, visualizadas en un dashboard de Grafana.
+  (transferencias completadas/fallidas) en Prometheus, visualizadas en un dashboard de Grafana;
+  **tracing distribuido** (Micrometer Tracing + OpenTelemetry → Tempo): una transferencia produce una
+  única traza que cruza los 3 servicios y el broker Kafka, propagando el contexto a través del outbox.
 
 ## Stack
 
 - Java 21 (LTS) · Spring Boot 3.5 · Maven multi-módulo (con wrapper, sin instalación global)
 - Apache Kafka 3.9 en modo **KRaft** (sin Zookeeper) · PostgreSQL 16 (una base por servicio)
 - Frontend: React 18 + Vite + TypeScript + TanStack Query + react-i18next (ES/EN), servido por **Nginx** (reverse-proxy `/api`)
-- Observabilidad: Spring Boot Actuator + Micrometer + Prometheus + Grafana (provisionado)
+- Observabilidad: Spring Boot Actuator + Micrometer (métricas) + Prometheus + Grafana (provisionado); **Micrometer Tracing + OpenTelemetry (OTLP) → Grafana Tempo** (trazas)
 - Tests: JUnit 5 · Mockito · AssertJ · **Testcontainers** (Kafka + Postgres) · Awaitility
 - Docker Compose para levantar toda la demo en local
 
@@ -64,7 +66,8 @@ como showcase técnico de arquitectura hexagonal, comunicación event-driven y c
                       │   service    │ ──── SSE ───► frontend (feed en vivo)
                       └──────┬───────┘
                              ▼
-                  Prometheus (scrape /actuator/prometheus) → Grafana
+          Prometheus (scrape /actuator/prometheus) ─┐
+          Tempo (trazas OTLP de los 3 servicios) ───┴──► Grafana
 ```
 
 - **account-service** (`:8081`) — fuente de verdad de cuentas y saldos. Consume comandos
@@ -117,6 +120,8 @@ docker compose ps                      # todos los contenedores arriba
 - **Grafana**: http://localhost:3001 — dashboard _HexaBank — Observabilidad_ (throughput, consumer lag,
   latencia HTTP). Acceso anónimo de solo lectura.
 - **Prometheus**: http://localhost:9090 — _Status → Targets_ (3 servicios `UP`).
+- **Trazas (Tempo)**: en Grafana → _Explore_ → datasource **Tempo**; busca una traza `http post /transfers`
+  y verás los spans encadenados `transfer → account → ledger` cruzando Kafka.
 - **Kafka UI**: http://localhost:8080 — topics, particiones, consumer-groups y `*.DLT`.
 
 > Grafana y Prometheus se publican solo en `127.0.0.1` (no alcanzables desde la red). Parar y limpiar:
@@ -184,6 +189,7 @@ curl "localhost:8083/ledger?accountId=<id-ana>" -H "$AUTH" # asientos DEBIT/CRED
 | Kafka UI                             | 8080                   |
 | Prometheus                           | 127.0.0.1:9090         |
 | Grafana                              | 127.0.0.1:3001         |
+| Tempo (trazas, API de consulta)      | 127.0.0.1:3200         |
 | postgres-account                     | 5442 (db `accountdb`)  |
 | postgres-transfer                    | 5443 (db `transferdb`) |
 | postgres-ledger                      | 5444 (db `ledgerdb`)   |
@@ -202,6 +208,16 @@ de Grafana se provisiona automáticamente (datasource + paneles) desde `infra/gr
 - **Consumer lag de Kafka** — `kafka_consumer_fetch_manager_records_lag_max` por servicio.
 - **Latencia HTTP p95** — quantiles a partir de los histogramas de `http_server_requests`.
 
+### Tracing distribuido (Tempo)
+
+Los 3 servicios exportan trazas por **OTLP** a **Grafana Tempo** (Micrometer Tracing + OpenTelemetry,
+muestreo al 100%). Una transferencia genera **una única traza** que atraviesa `transfer → account →
+ledger` y el broker Kafka. El reto está en el **outbox**: el evento se publica en un hilo distinto (el
+relay `@Scheduled`), donde ya no hay contexto de traza. Se resuelve **persistiendo el `traceparent` W3C
+en la fila del outbox** al encolar y **reinyectándolo como cabecera Kafka** en el relay; el consumidor
+continúa la misma traza. En Grafana, _Explore → Tempo_; los exemplars enlazan cada métrica de Prometheus
+con su traza.
+
 ## Estructura
 
 ```
@@ -213,8 +229,8 @@ hexabank/
   ledger-service/     lado de lectura CQRS (libro mayor + proyección + SSE)
   e2e-tests/          test de la saga de extremo a extremo (account + transfer)
   frontend/           SPA React (Vite + TS), servida por Nginx con reverse-proxy /api
-  infra/              prometheus.yml + provisioning de Grafana (datasource + dashboard)
-  docker-compose.yml  Kafka KRaft + Kafka UI + 3 Postgres + 3 servicios + frontend + Prometheus + Grafana
+  infra/              prometheus.yml + tempo.yaml + provisioning de Grafana (datasources + dashboard)
+  docker-compose.yml  Kafka KRaft + Kafka UI + 3 Postgres + 3 servicios + frontend + Prometheus + Grafana + Tempo
 ```
 
 Cada servicio sigue la misma estructura hexagonal:
@@ -301,15 +317,15 @@ Cómo cada requisito de la oferta se materializa en el código:
 | **Resiliencia de la saga** | **Outbox** transaccional (relay `@Scheduled`, cierra el dual-write) en transfer + account; **Idempotency-Key** opcional en `POST /transfers`; **reaper** `@Scheduled` de sagas atascadas (`PENDING`/`DEBITED`/`COMPENSATING` → transición segura) con reembolso idempotente por `transferId` |
 | **CI + revisión de código** | GitHub Actions (`ci.yml`) en cada push/PR; el trabajo entra por Pull Requests |
 | **Testing** | JUnit 5 / Mockito / AssertJ (dominio) + **Testcontainers** Kafka+Postgres (integración) + Awaitility (saga e2e) |
-| **Observabilidad** | Actuator + Micrometer → Prometheus (`/actuator/prometheus`); métrica de negocio vía puerto `TransferMetricsPort`; dashboard de Grafana provisionado |
+| **Observabilidad** | Actuator + Micrometer → Prometheus (`/actuator/prometheus`); métrica de negocio vía puerto `TransferMetricsPort`; dashboard de Grafana provisionado; **tracing distribuido** (Micrometer Tracing + OTLP → Tempo) con propagación del contexto a través del outbox/Kafka |
 | **Autenticación / autorización** | OIDC con **Keycloak** (realm-as-code); los 3 servicios son OAuth2 Resource Server (JWT Bearer, validación de firma/`iss`/`aud`); autorización por **propiedad** (proyección CQRS de ownership) + roles `USER`/`STAFF` (`@PreAuthorize`), **404 anti existence-oracle**; **login OIDC** (Authorization Code + PKCE) en el frontend React, con SSE autenticado por cabecera Bearer |
 
 ## Roadmap
 
 Auth end-to-end (Keycloak OIDC, ownership + roles, login del frontend), **resiliencia de la saga**
-(patrón outbox, Idempotency-Key, DLT con retry/backoff y reaper) y **concurrencia demostrable**
-(virtual threads, rate limiting, prueba de carga k6) ya implementados. Siguientes incrementos hacia un
-diseño de producción:
+(patrón outbox, Idempotency-Key, DLT con retry/backoff y reaper), **concurrencia demostrable**
+(virtual threads, rate limiting, prueba de carga k6) y **tracing distribuido** (Micrometer Tracing +
+OTLP → Tempo, con propagación del contexto a través del outbox/Kafka) ya implementados. Siguiente
+incremento hacia un diseño de producción:
 
-- **Tracing distribuido** — Micrometer Tracing + Tempo/Jaeger, propagación de contexto por Kafka.
 - **Contratos** — OpenAPI/Swagger, contract testing y Schema Registry (Avro) para eventos.
