@@ -74,6 +74,16 @@
             <artifactId>micrometer-registry-prometheus</artifactId>
             <scope>runtime</scope>
         </dependency>
+        <!-- Tracing distribuido: puente Micrometer -> OpenTelemetry + exportador OTLP a Tempo.
+             Versiones fijadas por el BOM de Spring Boot. -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-tracing-bridge-otel</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-exporter-otlp</artifactId>
+        </dependency>
         <!-- Seguridad: Resource Server OAuth2. Valida el Bearer JWT de Keycloak (firma, iss,
              exp, aud) en cada peticion REST. Version fijada por el BOM de Spring Boot. -->
         <dependency>
