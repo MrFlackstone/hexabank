@@ -69,9 +69,11 @@ public class KafkaConfig {
     @Bean
     KafkaTemplate<String, Object> kafkaTemplate(ProducerFactory<String, Object> producerFactory) {
         KafkaTemplate<String, Object> template = new KafkaTemplate<>(producerFactory);
-        // Tracing (Fase 12): habilita la observación del productor -> crea el span de envío y propaga
-        // el contexto de traza (traceparent) a las cabeceras del mensaje Kafka.
-        template.setObservationEnabled(true);
+        // Tracing (Fase 12): observación del productor DESACTIVADA. El relay del outbox reinyecta a mano
+        // el traceparent capturado al encolar; con la observación activa, el productor sobrescribiría esa
+        // cabecera con el contexto del hilo del scheduler (otra traza) y la traza se fragmentaría. El
+        // consumidor (observación de contenedor activa) continúa la traza a partir de esa cabecera.
+        template.setObservationEnabled(false);
         return template;
     }
 
