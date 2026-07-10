@@ -9,3 +9,8 @@ datasources:
     url: http://prometheus:9090     # nombre de servicio en la red de compose
     isDefault: true
     editable: false           # la config del datasource es el YAML en disco, no editable por UI
+    jsonData:
+      # Fase 12: enlaza cada exemplar de los histogramas con su traza en Tempo (salto metrica -> traza).
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: tempo

@@ -1,0 +1,19 @@
+# Provisioning del datasource de trazas (Fase 12). Grafana lo crea al arrancar, sin config manual.
+# Enlaza trazas <-> métricas usando el datasource Prometheus existente (service map y traces-to-metrics),
+# completando la observabilidad: una traza en Tempo salta a sus métricas en Prometheus y viceversa.
+apiVersion: 1
+
+datasources:
+  - name: Tempo
+    uid: tempo                 # uid fijo referenciado por los exemplars del datasource Prometheus
+    type: tempo
+    access: proxy
+    url: http://tempo:3200     # nombre de servicio en la red de compose
+    editable: false
+    jsonData:
+      tracesToMetrics:
+        datasourceUid: prometheus
+      serviceMap:
+        datasourceUid: prometheus
+      nodeGraph:
+        enabled: true

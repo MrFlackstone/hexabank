@@ -145,6 +145,8 @@ services:
       # canal interno (keycloak:8080), inalcanzable como 'localhost' desde el contenedor.
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://localhost:8180/realms/hexabank
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/hexabank/protocol/openid-connect/certs
+      # Fase 12: exporta las trazas por OTLP a Tempo (sobreescribe management.otlp.tracing.endpoint).
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://tempo:4318/v1/traces
     depends_on:
       kafka:
         condition: service_healthy
@@ -169,6 +171,8 @@ services:
       # Split frontchannel/backchannel (ver account-service): emisor publico + JWKS interno.
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://localhost:8180/realms/hexabank
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/hexabank/protocol/openid-connect/certs
+      # Fase 12: exporta las trazas por OTLP a Tempo (sobreescribe management.otlp.tracing.endpoint).
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://tempo:4318/v1/traces
     depends_on:
       kafka:
         condition: service_healthy
@@ -193,6 +197,8 @@ services:
       # Split frontchannel/backchannel (ver account-service): emisor publico + JWKS interno.
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://localhost:8180/realms/hexabank
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/hexabank/protocol/openid-connect/certs
+      # Fase 12: exporta las trazas por OTLP a Tempo (sobreescribe management.otlp.tracing.endpoint).
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://tempo:4318/v1/traces
     depends_on:
       kafka:
         condition: service_healthy
@@ -312,6 +318,23 @@ services:
       - grafana-data:/var/lib/grafana
     depends_on:
       - prometheus
+      - tempo
+    networks:
+      - hexabank-net
+    restart: unless-stopped
+
+  # --- Tempo (Fase 12): backend de trazas distribuidas. Recibe spans por OTLP desde los 3 servicios
+  # (tempo:4318) y Grafana los consulta por su API HTTP (3200, solo loopback). Completa la
+  # observabilidad: metricas (Prometheus) + trazas (Tempo) en el mismo Grafana. ---
+  tempo:
+    image: grafana/tempo:latest
+    container_name: tempo
+    command: ["-config.file=/etc/tempo.yaml"]
+    ports:
+      - "127.0.0.1:3200:3200"   # solo loopback: Grafana lo alcanza por la red interna
+    volumes:
+      - ./infra/tempo.yaml:/etc/tempo.yaml:ro
+      - tempo-data:/var/tempo
     networks:
       - hexabank-net
     restart: unless-stopped
@@ -327,3 +350,4 @@ volumes:
   postgres-ledger-data:
   postgres-keycloak-data:
   grafana-data:
+  tempo-data:

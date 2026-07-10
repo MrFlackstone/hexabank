@@ -1,0 +1,22 @@
+# Grafana Tempo (Fase 12): backend de trazas. Recibe spans por OTLP (gRPC 4317 / HTTP 4318) desde los
+# tres servicios y los almacena en disco local. Grafana lo consulta por su API HTTP (3200). Config
+# mínima de un solo nodo, suficiente para la demo (en producción: almacenamiento en objeto + réplicas).
+server:
+  http_listen_port: 3200
+
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        http:
+          endpoint: "0.0.0.0:4318"
+        grpc:
+          endpoint: "0.0.0.0:4317"
+
+storage:
+  trace:
+    backend: local
+    wal:
+      path: /var/tempo/wal
+    local:
+      path: /var/tempo/blocks
