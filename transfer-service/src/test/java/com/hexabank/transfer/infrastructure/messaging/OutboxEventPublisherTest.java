@@ -29,9 +29,12 @@ class OutboxEventPublisherTest {
     @Mock
     private OutboxJpaRepository outboxRepository;
 
+    @Mock
+    private TracePropagation tracePropagation;
+
     @Test
     void persistsCommandRowRoutedToAccountCommandsKeyedByAccount() {
-        OutboxEventPublisher publisher = new OutboxEventPublisher(outboxRepository, objectMapper);
+        OutboxEventPublisher publisher = new OutboxEventPublisher(outboxRepository, objectMapper, tracePropagation);
         UUID accountId = UUID.randomUUID();
         DebitRequested event = new DebitRequested(
                 UUID.randomUUID(), UUID.randomUUID(), accountId, new BigDecimal("100.00"));
@@ -51,7 +54,7 @@ class OutboxEventPublisherTest {
 
     @Test
     void persistsTerminalRowRoutedToTransferEventsKeyedByTransfer() {
-        OutboxEventPublisher publisher = new OutboxEventPublisher(outboxRepository, objectMapper);
+        OutboxEventPublisher publisher = new OutboxEventPublisher(outboxRepository, objectMapper, tracePropagation);
         UUID transferId = UUID.randomUUID();
         TransferCompleted event = new TransferCompleted(UUID.randomUUID(), transferId);
 

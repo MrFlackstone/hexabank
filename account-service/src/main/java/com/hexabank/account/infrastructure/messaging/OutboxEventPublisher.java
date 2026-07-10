@@ -23,10 +23,13 @@ public class OutboxEventPublisher implements EventPublisherPort {
 
     private final OutboxJpaRepository outboxRepository;
     private final ObjectMapper objectMapper;
+    private final TracePropagation tracePropagation;
 
-    public OutboxEventPublisher(OutboxJpaRepository outboxRepository, ObjectMapper objectMapper) {
+    public OutboxEventPublisher(OutboxJpaRepository outboxRepository, ObjectMapper objectMapper,
+                                TracePropagation tracePropagation) {
         this.outboxRepository = outboxRepository;
         this.objectMapper = objectMapper;
+        this.tracePropagation = tracePropagation;
     }
 
     @Override
@@ -37,7 +40,8 @@ public class OutboxEventPublisher implements EventPublisherPort {
                 EventRouting.topicFor(event),
                 EventRouting.keyFor(event),
                 event.getClass().getName(),
-                serialize(event)));
+                serialize(event),
+                tracePropagation.currentTraceparent()));
     }
 
     private String serialize(DomainEvent event) {

@@ -30,13 +30,16 @@ public class OutboxRelay {
     private final OutboxJpaRepository outboxRepository;
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final ObjectMapper objectMapper;
+    private final TracePropagation tracePropagation;
 
     public OutboxRelay(OutboxJpaRepository outboxRepository,
                        KafkaTemplate<String, Object> kafkaTemplate,
-                       ObjectMapper objectMapper) {
+                       ObjectMapper objectMapper,
+                       TracePropagation tracePropagation) {
         this.outboxRepository = outboxRepository;
         this.kafkaTemplate = kafkaTemplate;
         this.objectMapper = objectMapper;
+        this.tracePropagation = tracePropagation;
     }
 
     @Scheduled(fixedDelayString = "${hexabank.outbox.poll-interval-ms:200}")
@@ -45,7 +48,12 @@ public class OutboxRelay {
         for (OutboxJpaEntity row : pending) {
             try {
                 DomainEvent event = objectMapper.readValue(row.getPayload(), eventClass(row.getEventType()));
-                kafkaTemplate.send(row.getTopic(), row.getPartitionKey(), event).get();
+                // Fase 12: restablece la traza original (traceparent de la fila) antes de enviar, para
+                // que el span de productor de Kafka cuelgue de ella pese al salto de hilo outbox -> relay.
+                tracePropagation.withRestoredContext(row.getTraceparent(), () -> {
+                    kafkaTemplate.send(row.getTopic(), row.getPartitionKey(), event).get();
+                    return null;
+                });
                 row.markPublished(OffsetDateTime.now());
                 outboxRepository.save(row);
             } catch (InterruptedException e) {

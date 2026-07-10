@@ -37,6 +37,10 @@ public class OutboxJpaEntity {
     @Column(nullable = false, columnDefinition = "text")
     private String payload;
 
+    // Fase 12: traceparent W3C capturado al encolar; el relay lo reinyecta como cabecera Kafka.
+    @Column(name = "traceparent", length = 64)
+    private String traceparent;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
@@ -49,13 +53,14 @@ public class OutboxJpaEntity {
     }
 
     public OutboxJpaEntity(UUID id, UUID eventId, String topic, String partitionKey,
-                           String eventType, String payload) {
+                           String eventType, String payload, String traceparent) {
         this.id = id;
         this.eventId = eventId;
         this.topic = topic;
         this.partitionKey = partitionKey;
         this.eventType = eventType;
         this.payload = payload;
+        this.traceparent = traceparent;
     }
 
     public void markPublished(OffsetDateTime publishedAt) {
@@ -84,6 +89,10 @@ public class OutboxJpaEntity {
 
     public String getPayload() {
         return payload;
+    }
+
+    public String getTraceparent() {
+        return traceparent;
     }
 
     public OffsetDateTime getCreatedAt() {

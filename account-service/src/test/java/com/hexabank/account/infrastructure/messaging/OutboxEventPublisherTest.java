@@ -28,9 +28,12 @@ class OutboxEventPublisherTest {
     @Mock
     private OutboxJpaRepository outboxRepository;
 
+    @Mock
+    private TracePropagation tracePropagation;
+
     @Test
     void persistsEventRowRoutedToAccountEventsKeyedByAccount() {
-        OutboxEventPublisher publisher = new OutboxEventPublisher(outboxRepository, objectMapper);
+        OutboxEventPublisher publisher = new OutboxEventPublisher(outboxRepository, objectMapper, tracePropagation);
         UUID accountId = UUID.randomUUID();
         MoneyDebited event = new MoneyDebited(
                 UUID.randomUUID(), UUID.randomUUID(), accountId, new BigDecimal("50.00"));
