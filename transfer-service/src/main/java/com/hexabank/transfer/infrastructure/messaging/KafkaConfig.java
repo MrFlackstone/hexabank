@@ -68,7 +68,11 @@ public class KafkaConfig {
 
     @Bean
     KafkaTemplate<String, Object> kafkaTemplate(ProducerFactory<String, Object> producerFactory) {
-        return new KafkaTemplate<>(producerFactory);
+        KafkaTemplate<String, Object> template = new KafkaTemplate<>(producerFactory);
+        // Tracing (Fase 12): habilita la observación del productor -> crea el span de envío y propaga
+        // el contexto de traza (traceparent) a las cabeceras del mensaje Kafka.
+        template.setObservationEnabled(true);
+        return template;
     }
 
     @Bean
@@ -96,6 +100,9 @@ public class KafkaConfig {
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory);
         factory.setCommonErrorHandler(errorHandler);
+        // Tracing (Fase 12): el contenedor abre un span de consumidor por registro y continúa la
+        // traza extrayendo el traceparent de las cabeceras del mensaje.
+        factory.getContainerProperties().setObservationEnabled(true);
         return factory;
     }
 

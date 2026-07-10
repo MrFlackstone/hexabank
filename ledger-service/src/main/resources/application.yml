@@ -54,3 +54,12 @@ management:
     metrics:
       export:
         enabled: true
+  # Tracing distribuido (Fase 12): puente Micrometer -> OpenTelemetry con exportador OTLP.
+  # sampling.probability=1.0 traza el 100% de las peticiones (demo). En compose el endpoint se
+  # sobreescribe por env MANAGEMENT_OTLP_TRACING_ENDPOINT=http://tempo:4318/v1/traces.
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: http://localhost:4318/v1/traces
