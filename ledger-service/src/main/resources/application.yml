@@ -63,3 +63,12 @@ management:
   otlp:
     tracing:
       endpoint: http://localhost:4318/v1/traces
+
+# OpenAPI/Swagger UI (Fase 13a). Documenta la API /v1 y habilita el login OAuth2
+# (authorization-code + PKCE) contra Keycloak desde el propio Swagger UI. El client-id
+# es el publico hexabank-frontend; PKCE S256 lo exige el realm.
+springdoc:
+  swagger-ui:
+    oauth:
+      client-id: hexabank-frontend
+      use-pkce-with-authorization-code-grant: true
