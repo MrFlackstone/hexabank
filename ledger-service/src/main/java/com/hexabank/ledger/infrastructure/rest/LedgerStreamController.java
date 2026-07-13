@@ -1,6 +1,8 @@
 package com.hexabank.ledger.infrastructure.rest;
 
 import com.hexabank.ledger.infrastructure.sse.SseLedgerBroadcaster;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,6 +16,8 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
  * real los asientos de sus cuentas (todos, si es STAFF).
  */
 @RestController
+@Tag(name = "Libro mayor (stream SSE)",
+        description = "Feed en vivo del libro mayor por Server-Sent Events; requiere Bearer en la cabecera.")
 public class LedgerStreamController {
 
     private final SseLedgerBroadcaster broadcaster;
@@ -22,6 +26,9 @@ public class LedgerStreamController {
         this.broadcaster = broadcaster;
     }
 
+    @Operation(summary = "Feed en vivo del libro (SSE)",
+            description = "Server-Sent Events (text/event-stream). El token va en la cabecera Authorization: Bearer "
+                    + "(no como query param). Swagger UI no renderiza bien un stream SSE; usar el frontend o curl para probarlo.")
     @GetMapping(value = "/v1/ledger/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter stream(Authentication authentication) {
         return broadcaster.subscribe(CallerContexts.from(authentication));

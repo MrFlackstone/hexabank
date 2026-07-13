@@ -13,6 +13,10 @@ import com.hexabank.transfer.domain.TransferStatus;
 import com.hexabank.transfer.infrastructure.rest.dto.CreateTransferRequest;
 import com.hexabank.transfer.infrastructure.rest.dto.PageResponse;
 import com.hexabank.transfer.infrastructure.rest.dto.TransferResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -39,6 +43,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/v1/transfers")
+@Tag(name = "Transferencias", description = "Orquestacion de la saga de transferencias y su consulta paginada.")
 public class TransferController {
 
     /** Tope de tamaño de página: protege al servicio de peticiones desmesuradas. */
@@ -62,6 +67,14 @@ public class TransferController {
         this.searchTransfersUseCase = searchTransfersUseCase;
     }
 
+    @Operation(summary = "Solicita una transferencia",
+            description = "Arranca la saga (queda en PENDING y publica DebitRequested). La cabecera "
+                    + "opcional Idempotency-Key hace idempotente el reintento del cliente.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Transferencia aceptada (PENDING)"),
+            @ApiResponse(responseCode = "400", description = "Datos invalidos (RFC 7807 ProblemDetail)"),
+            @ApiResponse(responseCode = "422", description = "Idempotency-Key reutilizada con otro payload")
+    })
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public TransferResponse create(@Valid @RequestBody CreateTransferRequest request,
@@ -73,6 +86,12 @@ public class TransferController {
         return TransferResponse.from(transfer);
     }
 
+    @Operation(summary = "Obtiene una transferencia por id",
+            description = "Visible para las cuentas origen/destino y STAFF; en caso contrario 404 (anti existence-oracle).")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Transferencia encontrada"),
+            @ApiResponse(responseCode = "404", description = "No existe o no es visible para el llamante")
+    })
     @GetMapping("/{id}")
     public ResponseEntity<TransferResponse> getById(@PathVariable("id") String id,
                                                     Authentication authentication) {
@@ -84,6 +103,14 @@ public class TransferController {
      * Listado paginado 100 % server-side: el servidor filtra, ordena y pagina en SQL y devuelve solo
      * la página pedida. Un USER ve únicamente transferencias que involucran sus cuentas; STAFF, todas.
      */
+    @Operation(summary = "Lista transferencias paginadas",
+            description = "Paginacion 100% server-side (filtra/ordena/pagina en SQL). Un USER solo ve las "
+                    + "transferencias de sus cuentas; STAFF, todas. sort admite createdAt|amount|status con asc|desc; "
+                    + "size tope 100.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Pagina de resultados"),
+            @ApiResponse(responseCode = "400", description = "sort fuera de whitelist o size por encima del tope")
+    })
     @GetMapping
     public PageResponse<TransferResponse> search(
             @RequestParam(name = "status", required = false) String status,

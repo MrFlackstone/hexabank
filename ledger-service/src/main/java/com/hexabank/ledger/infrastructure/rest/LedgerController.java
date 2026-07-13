@@ -2,6 +2,10 @@ package com.hexabank.ledger.infrastructure.rest;
 
 import com.hexabank.ledger.application.port.in.QueryLedgerUseCase;
 import com.hexabank.ledger.infrastructure.rest.dto.LedgerEntryResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,6 +26,7 @@ import java.util.UUID;
  */
 @RestController
 @RequestMapping("/v1/ledger")
+@Tag(name = "Libro mayor", description = "Consulta de asientos contables (libro completo STAFF y por cuenta).")
 public class LedgerController {
 
     private final QueryLedgerUseCase queryLedger;
@@ -31,6 +36,12 @@ public class LedgerController {
     }
 
     /** Libro completo (todas las cuentas): solo personal del banco. */
+    @Operation(summary = "Libro completo (solo STAFF)",
+            description = "Devuelve los asientos recientes de todas las cuentas. Puerta pura de rol: 403 si no es STAFF.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Asientos recientes"),
+            @ApiResponse(responseCode = "403", description = "El llamante no es STAFF")
+    })
     @GetMapping(params = "!accountId")
     @PreAuthorize("hasRole('STAFF')")
     public List<LedgerEntryResponse> listAll() {
@@ -38,6 +49,12 @@ public class LedgerController {
     }
 
     /** Asientos de una cuenta concreta: su propietario o STAFF. */
+    @Operation(summary = "Asientos de una cuenta",
+            description = "Devuelve los asientos de la cuenta indicada. Se autoriza por propiedad: 404 si es ajena.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Asientos de la cuenta"),
+            @ApiResponse(responseCode = "404", description = "Cuenta ajena o inexistente (identico)")
+    })
     @GetMapping(params = "accountId")
     public List<LedgerEntryResponse> listByAccount(@RequestParam("accountId") UUID accountId,
                                                    Authentication authentication) {

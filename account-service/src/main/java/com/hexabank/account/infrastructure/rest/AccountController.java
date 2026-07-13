@@ -9,6 +9,10 @@ import com.hexabank.account.domain.Money;
 import com.hexabank.account.domain.OwnerId;
 import com.hexabank.account.infrastructure.rest.dto.AccountResponse;
 import com.hexabank.account.infrastructure.rest.dto.CreateAccountRequest;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -30,6 +34,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/v1/accounts")
+@Tag(name = "Cuentas", description = "Alta y consulta de cuentas y saldos (fuente de verdad).")
 public class AccountController {
 
     private final CreateAccountUseCase createAccountUseCase;
@@ -40,6 +45,13 @@ public class AccountController {
         this.getAccountUseCase = getAccountUseCase;
     }
 
+    @Operation(summary = "Crea una cuenta",
+            description = "Registra una cuenta con su saldo inicial. El titular queda asociado al usuario autenticado.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Cuenta creada"),
+            @ApiResponse(responseCode = "400", description = "Datos invalidos (RFC 7807 ProblemDetail)"),
+            @ApiResponse(responseCode = "401", description = "Falta el Bearer o es invalido")
+    })
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public AccountResponse create(@Valid @RequestBody CreateAccountRequest request,
@@ -49,6 +61,12 @@ public class AccountController {
         return AccountResponse.from(account);
     }
 
+    @Operation(summary = "Obtiene una cuenta por id",
+            description = "Devuelve la cuenta si el llamante es su titular o STAFF; en caso contrario 404 (anti existence-oracle).")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Cuenta encontrada"),
+            @ApiResponse(responseCode = "404", description = "No existe o no es visible para el llamante")
+    })
     @GetMapping("/{id}")
     public ResponseEntity<AccountResponse> getById(@PathVariable("id") String id,
                                                    Authentication authentication) {
