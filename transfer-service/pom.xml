@@ -206,7 +206,7 @@
                 <extensions>true</extensions>
                 <configuration>
                     <testFramework>JUNIT5</testFramework>
-                    <packageWithBaseClasses>com.hexabank.transfer.contract</packageWithBaseClasses>
+                    <baseClassForTests>com.hexabank.transfer.contract.TransferProducedEventsBase</baseClassForTests>
                     <nameSuffixForTests>IT</nameSuffixForTests>
                     <!-- Todavia sin contratos en este commit de wiring; se anaden en el siguiente. -->
                     <failOnNoContracts>false</failOnNoContracts>
