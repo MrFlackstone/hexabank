@@ -14,7 +14,7 @@ import java.util.UUID;
  * Adaptador de entrada REST que expone la proyección de lectura de una transferencia.
  */
 @RestController
-@RequestMapping("/transfers")
+@RequestMapping("/v1/transfers")
 public class TransferViewController {
 
     private final GetTransferViewUseCase getTransferView;

@@ -5,7 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import java.time.Duration;
 
 /**
- * Configuración del rate limiting por principal en {@code POST /transfers} (Fase 11).
+ * Configuración del rate limiting por principal en {@code POST /v1/transfers} (Fase 11).
  *
  * <p>Valores por defecto generosos (50 tokens, recarga de 50/seg): protegen frente a abuso o bucles
  * de reintentos sin estorbar el uso normal. {@code enabled=false} desactiva el filtro por completo,

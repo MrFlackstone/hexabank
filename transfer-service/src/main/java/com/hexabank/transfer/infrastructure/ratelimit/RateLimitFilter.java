@@ -17,7 +17,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 
 /**
- * Rate limiting por principal en {@code POST /transfers} (Fase 11, defensa en profundidad). Se ubica
+ * Rate limiting por principal en {@code POST /v1/transfers} (Fase 11, defensa en profundidad). Se ubica
  * tras la autenticación en la cadena de filtros, por lo que el principal ({@code sub}) ya está
  * resuelto. STAFF queda exento (operativa interna). Al agotarse el cupo responde {@code 429} con un
  * {@link ProblemDetail} (RFC 7807), coherente con el resto de errores del servicio.
@@ -28,7 +28,7 @@ import java.io.IOException;
 public class RateLimitFilter extends OncePerRequestFilter {
 
     private static final String STAFF_AUTHORITY = "ROLE_STAFF";
-    private static final String TRANSFERS_PATH = "/transfers";
+    private static final String TRANSFERS_PATH = "/v1/transfers";
 
     private final RateLimitProperties properties;
     private final PrincipalRateLimiter rateLimiter;

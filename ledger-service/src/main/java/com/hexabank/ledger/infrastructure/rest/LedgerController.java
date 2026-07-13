@@ -21,7 +21,7 @@ import java.util.UUID;
  * ocultar) y la consulta por cuenta se autoriza por propiedad en la aplicación (404 si ajena).</p>
  */
 @RestController
-@RequestMapping("/ledger")
+@RequestMapping("/v1/ledger")
 public class LedgerController {
 
     private final QueryLedgerUseCase queryLedger;

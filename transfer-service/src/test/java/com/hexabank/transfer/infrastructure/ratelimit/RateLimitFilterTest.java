@@ -106,8 +106,8 @@ class RateLimitFilterTest {
     }
 
     private MockHttpServletRequest postTransfers() {
-        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/transfers");
-        request.setRequestURI("/transfers");
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/v1/transfers");
+        request.setRequestURI("/v1/transfers");
         return request;
     }
 

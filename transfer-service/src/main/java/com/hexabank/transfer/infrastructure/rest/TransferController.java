@@ -38,7 +38,7 @@ import java.util.Map;
  * comandos/respuestas de la aplicación; no contiene reglas de negocio.</p>
  */
 @RestController
-@RequestMapping("/transfers")
+@RequestMapping("/v1/transfers")
 public class TransferController {
 
     /** Tope de tamaño de página: protege al servicio de peticiones desmesuradas. */

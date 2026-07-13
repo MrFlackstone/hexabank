@@ -29,7 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
  * la aplicación; no contiene reglas de negocio.</p>
  */
 @RestController
-@RequestMapping("/accounts")
+@RequestMapping("/v1/accounts")
 public class AccountController {
 
     private final CreateAccountUseCase createAccountUseCase;

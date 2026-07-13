@@ -22,7 +22,7 @@ public class LedgerStreamController {
         this.broadcaster = broadcaster;
     }
 
-    @GetMapping(value = "/ledger/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @GetMapping(value = "/v1/ledger/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter stream(Authentication authentication) {
         return broadcaster.subscribe(CallerContexts.from(authentication));
     }

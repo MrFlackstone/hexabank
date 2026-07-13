@@ -43,7 +43,7 @@ import static org.awaitility.Awaitility.await;
 
 /**
  * Test de integración del endpoint de transferencias contra Kafka + Postgres reales (Testcontainers).
- * Verifica que {@code POST /transfers} crea la transferencia en estado {@code PENDING} y publica
+ * Verifica que {@code POST /v1/transfers} crea la transferencia en estado {@code PENDING} y publica
  * {@code DebitRequested} en account-commands. Requiere Docker.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -78,13 +78,13 @@ class TransferControllerIT {
     }
 
     @Test
-    @DisplayName("POST /transfers crea PENDING y publica DebitRequested")
+    @DisplayName("POST /v1/transfers crea PENDING y publica DebitRequested")
     void createTransferPublishesDebitRequested() {
         UUID source = UUID.randomUUID();
         UUID destination = UUID.randomUUID();
         List<DomainEvent> commands = subscribeToAccountCommands();
 
-        ResponseEntity<TransferResponse> response = restTemplate.postForEntity("/transfers",
+        ResponseEntity<TransferResponse> response = restTemplate.postForEntity("/v1/transfers",
                 new CreateTransferRequest(source, destination, new BigDecimal("50.00")), TransferResponse.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);

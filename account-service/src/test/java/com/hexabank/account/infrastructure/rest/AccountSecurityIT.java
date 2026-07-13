@@ -89,7 +89,7 @@ class AccountSecurityIT {
     @DisplayName("sin token -> 401 Unauthorized")
     void rejectsRequestWithoutToken() {
         ResponseEntity<String> response =
-                restTemplate.getForEntity("/accounts/" + UUID.randomUUID(), String.class);
+                restTemplate.getForEntity("/v1/accounts/" + UUID.randomUUID(), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
     }
@@ -103,7 +103,7 @@ class AccountSecurityIT {
         HttpHeaders postHeaders = new HttpHeaders();
         postHeaders.addAll(auth);
         postHeaders.setContentType(MediaType.APPLICATION_JSON);
-        ResponseEntity<AccountResponse> created = restTemplate.postForEntity("/accounts",
+        ResponseEntity<AccountResponse> created = restTemplate.postForEntity("/v1/accounts",
                 new HttpEntity<>(new CreateAccountRequest("Alice", new BigDecimal("100.00")), postHeaders),
                 AccountResponse.class);
 
@@ -111,7 +111,7 @@ class AccountSecurityIT {
         assertThat(created.getBody()).isNotNull();
 
         ResponseEntity<AccountResponse> fetched = restTemplate.exchange(
-                "/accounts/" + created.getBody().id(), HttpMethod.GET,
+                "/v1/accounts/" + created.getBody().id(), HttpMethod.GET,
                 new HttpEntity<>(auth), AccountResponse.class);
 
         assertThat(fetched.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -145,7 +145,7 @@ class AccountSecurityIT {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(tokenFor(username, username));
         headers.setContentType(MediaType.APPLICATION_JSON);
-        ResponseEntity<AccountResponse> created = restTemplate.postForEntity("/accounts",
+        ResponseEntity<AccountResponse> created = restTemplate.postForEntity("/v1/accounts",
                 new HttpEntity<>(new CreateAccountRequest(holder, new BigDecimal("100.00")), headers),
                 AccountResponse.class);
         assertThat(created.getStatusCode()).isEqualTo(HttpStatus.CREATED);
@@ -156,7 +156,7 @@ class AccountSecurityIT {
     private ResponseEntity<String> getAccount(String accountId, String username) {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(tokenFor(username, username));
-        return restTemplate.exchange("/accounts/" + accountId, HttpMethod.GET,
+        return restTemplate.exchange("/v1/accounts/" + accountId, HttpMethod.GET,
                 new HttpEntity<>(headers), String.class);
     }
 

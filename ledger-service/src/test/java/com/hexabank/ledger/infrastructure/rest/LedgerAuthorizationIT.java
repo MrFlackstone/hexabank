@@ -86,51 +86,51 @@ class LedgerAuthorizationIT {
     private static String aliceSub;
 
     @Test
-    @DisplayName("GET /ledger (libro completo): staff 200, alice 403 (gate puro de rol)")
+    @DisplayName("GET /v1/ledger (libro completo): staff 200, alice 403 (gate puro de rol)")
     void fullLedgerIsStaffOnly() {
         ensureProjectionSeeded();
 
-        assertThat(get("/ledger", "staff").getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(get("/ledger", "alice").getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(get("/v1/ledger", "staff").getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(get("/v1/ledger", "alice").getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
     }
 
     @Test
-    @DisplayName("GET /ledger?accountId=: dueño 200; otro usuario 404 identico al inexistente")
+    @DisplayName("GET /v1/ledger?accountId=: dueño 200; otro usuario 404 identico al inexistente")
     void ledgerByAccountEnforcesOwnership() {
         ensureProjectionSeeded();
 
-        assertThat(get("/ledger?accountId=" + ALICE_ACCOUNT, "alice").getStatusCode())
+        assertThat(get("/v1/ledger?accountId=" + ALICE_ACCOUNT, "alice").getStatusCode())
                 .isEqualTo(HttpStatus.OK);
-        assertThat(get("/ledger?accountId=" + ALICE_ACCOUNT, "bob").getStatusCode())
+        assertThat(get("/v1/ledger?accountId=" + ALICE_ACCOUNT, "bob").getStatusCode())
                 .isEqualTo(HttpStatus.NOT_FOUND);
-        assertThat(get("/ledger?accountId=" + ALICE_ACCOUNT, "staff").getStatusCode())
+        assertThat(get("/v1/ledger?accountId=" + ALICE_ACCOUNT, "staff").getStatusCode())
                 .isEqualTo(HttpStatus.OK);
     }
 
     @Test
-    @DisplayName("GET /transfers/{id} (vista): involucrado 200, tercero 404")
+    @DisplayName("GET /v1/transfers/{id} (vista): involucrado 200, tercero 404")
     void transferViewEnforcesInvolvement() {
         ensureProjectionSeeded();
         UUID transferId = UUID.randomUUID();
         kafkaTemplate.send(KafkaTopics.ACCOUNT_EVENTS, ALICE_ACCOUNT.toString(),
                 new MoneyDebited(UUID.randomUUID(), transferId, ALICE_ACCOUNT, new BigDecimal("10.00")));
         await().atMost(Duration.ofSeconds(30)).untilAsserted(() ->
-                assertThat(get("/transfers/" + transferId, "alice").getStatusCode()).isEqualTo(HttpStatus.OK));
+                assertThat(get("/v1/transfers/" + transferId, "alice").getStatusCode()).isEqualTo(HttpStatus.OK));
 
-        assertThat(get("/transfers/" + transferId, "bob").getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
-        assertThat(get("/transfers/" + transferId, "staff").getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(get("/v1/transfers/" + transferId, "bob").getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(get("/v1/transfers/" + transferId, "staff").getStatusCode()).isEqualTo(HttpStatus.OK);
     }
 
     @Test
-    @DisplayName("SSE /ledger/stream: sin token 401; con cabecera Bearer 200; el query param NO autentica")
+    @DisplayName("SSE /v1/ledger/stream: sin token 401; con cabecera Bearer 200; el query param NO autentica")
     void sseRequiresBearerHeader() throws Exception {
         ensureProjectionSeeded();
 
-        ResponseEntity<String> anonymous = restTemplate.getForEntity("/ledger/stream", String.class);
+        ResponseEntity<String> anonymous = restTemplate.getForEntity("/v1/ledger/stream", String.class);
         assertThat(anonymous.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
 
         // El token por query ya no se acepta (se retiro el resolver que lo permitia): sin cabecera -> 401.
-        HttpURLConnection queryParam = open("/ledger/stream?access_token=" + tokenFor("alice", "alice"), null);
+        HttpURLConnection queryParam = open("/v1/ledger/stream?access_token=" + tokenFor("alice", "alice"), null);
         try {
             assertThat(queryParam.getResponseCode()).isEqualTo(HttpStatus.UNAUTHORIZED.value());
         } finally {
@@ -138,7 +138,7 @@ class LedgerAuthorizationIT {
         }
 
         // Con la cabecera Authorization: Bearer -> 200 y stream de eventos.
-        HttpURLConnection header = open("/ledger/stream", tokenFor("alice", "alice"));
+        HttpURLConnection header = open("/v1/ledger/stream", tokenFor("alice", "alice"));
         try {
             assertThat(header.getResponseCode()).isEqualTo(200);
             assertThat(header.getContentType()).contains(MediaType.TEXT_EVENT_STREAM_VALUE);

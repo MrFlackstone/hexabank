@@ -48,7 +48,7 @@ import static org.awaitility.Awaitility.await;
  * Test de integración de la autorización por propiedad y roles con la pila real: Keycloak (tokens de
  * verdad, roles de realm en el JWT), Kafka (la proyección de ownership se siembra publicando
  * {@code AccountOpened} reales en account-events) y Postgres. Verifica el cierre del IDOR de
- * escritura de {@code POST /transfers} y el 404 anti existence-oracle. Requiere Docker.
+ * escritura de {@code POST /v1/transfers} y el 404 anti existence-oracle. Requiere Docker.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Testcontainers
@@ -109,7 +109,7 @@ class TransferAuthorizationIT {
     }
 
     @Test
-    @DisplayName("GET /transfers/{id}: visible para origen/destino y STAFF; 404 para terceros")
+    @DisplayName("GET /v1/transfers/{id}: visible para origen/destino y STAFF; 404 para terceros")
     void getTransferVisibility() {
         ensureProjectionSeeded();
 
@@ -124,7 +124,7 @@ class TransferAuthorizationIT {
     }
 
     @Test
-    @DisplayName("GET /transfers pagina en servidor y restringe la visibilidad a las cuentas del llamante")
+    @DisplayName("GET /v1/transfers pagina en servidor y restringe la visibilidad a las cuentas del llamante")
     void searchIsPaginatedAndOwnershipFiltered() {
         ensureProjectionSeeded();
         for (int i = 0; i < 3; i++) {
@@ -147,7 +147,7 @@ class TransferAuthorizationIT {
     }
 
     @Test
-    @DisplayName("GET /transfers valida la whitelist de sort y el tope de tamano (400)")
+    @DisplayName("GET /v1/transfers valida la whitelist de sort y el tope de tamano (400)")
     void searchRejectsInvalidSortAndOversizedPage() {
         ensureProjectionSeeded();
 
@@ -158,7 +158,7 @@ class TransferAuthorizationIT {
     private ResponseEntity<PageResponse<TransferResponse>> searchTransfers(String username, String queryString) {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(tokenFor(username, username));
-        return restTemplate.exchange("/transfers" + queryString, HttpMethod.GET, new HttpEntity<>(headers),
+        return restTemplate.exchange("/v1/transfers" + queryString, HttpMethod.GET, new HttpEntity<>(headers),
                 new org.springframework.core.ParameterizedTypeReference<PageResponse<TransferResponse>>() {
                 });
     }
@@ -166,7 +166,7 @@ class TransferAuthorizationIT {
     private ResponseEntity<String> searchRaw(String username, String queryString) {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(tokenFor(username, username));
-        return restTemplate.exchange("/transfers" + queryString, HttpMethod.GET,
+        return restTemplate.exchange("/v1/transfers" + queryString, HttpMethod.GET,
                 new HttpEntity<>(headers), String.class);
     }
 
@@ -199,7 +199,7 @@ class TransferAuthorizationIT {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(tokenFor(username, username));
         headers.setContentType(MediaType.APPLICATION_JSON);
-        return restTemplate.postForEntity("/transfers",
+        return restTemplate.postForEntity("/v1/transfers",
                 new HttpEntity<>(new CreateTransferRequest(source, destination, new BigDecimal("10.00")), headers),
                 TransferResponse.class);
     }
@@ -207,7 +207,7 @@ class TransferAuthorizationIT {
     private ResponseEntity<String> getTransfer(UUID transferId, String username) {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(tokenFor(username, username));
-        return restTemplate.exchange("/transfers/" + transferId, HttpMethod.GET,
+        return restTemplate.exchange("/v1/transfers/" + transferId, HttpMethod.GET,
                 new HttpEntity<>(headers), String.class);
     }
 
