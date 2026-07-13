@@ -30,6 +30,9 @@
         <spring-boot.version>3.5.15</spring-boot.version>
         <!-- Bucket4j (rate limiting, Fase 11): no esta en el BOM de Spring Boot -> version explicita. -->
         <bucket4j.version>8.19.0</bucket4j.version>
+        <!-- Spring Cloud (Fase 13b, contract testing): train 2025.0.x alineado a Boot 3.5. -->
+        <spring-cloud.version>2025.0.0</spring-cloud.version>
+        <spring-cloud-contract.version>4.3.0</spring-cloud-contract.version>
     </properties>
 
     <modules>
@@ -47,6 +50,14 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-dependencies</artifactId>
                 <version>${spring-boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- BOM de Spring Cloud (Fase 13b): gestiona Spring Cloud Contract (verifier + stub-runner). -->
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring-cloud.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>

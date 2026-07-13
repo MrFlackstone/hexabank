@@ -146,6 +146,13 @@
             <version>3.7.0</version>
             <scope>test</scope>
         </dependency>
+        <!-- Spring Cloud Contract (Fase 13b). ledger es consumidor puro: stub-runner reproduce los
+             stubs de account-service (account-events) y transfer-service (transfer-events). -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-contract-stub-runner</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

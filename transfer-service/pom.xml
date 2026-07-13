@@ -151,6 +151,19 @@
             <version>3.7.0</version>
             <scope>test</scope>
         </dependency>
+        <!-- Spring Cloud Contract (Fase 13b). verifier: contratos del productor (account-commands +
+             transfer-events). stub-runner: reproduce los stubs del productor de account-events
+             (account-service) para verificar este servicio como consumidor. -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-contract-verifier</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-contract-stub-runner</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -180,6 +193,24 @@
                         </goals>
                     </execution>
                 </executions>
+            </plugin>
+            <!--
+                Spring Cloud Contract (Fase 13b, productor de account-commands y transfer-events).
+                Genera los tests de verificacion desde los contratos Groovy y publica el 'stubs' jar.
+                nameSuffixForTests=IT deja las clases generadas en 'verify' (Failsafe + Testcontainers).
+            -->
+            <plugin>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-contract-maven-plugin</artifactId>
+                <version>${spring-cloud-contract.version}</version>
+                <extensions>true</extensions>
+                <configuration>
+                    <testFramework>JUNIT5</testFramework>
+                    <packageWithBaseClasses>com.hexabank.transfer.contract</packageWithBaseClasses>
+                    <nameSuffixForTests>IT</nameSuffixForTests>
+                    <!-- Todavia sin contratos en este commit de wiring; se anaden en el siguiente. -->
+                    <failOnNoContracts>false</failOnNoContracts>
+                </configuration>
             </plugin>
         </plugins>
     </build>
