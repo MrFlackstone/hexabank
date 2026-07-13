@@ -206,7 +206,7 @@
                 <extensions>true</extensions>
                 <configuration>
                     <testFramework>JUNIT5</testFramework>
-                    <packageWithBaseClasses>com.hexabank.account.contract</packageWithBaseClasses>
+                    <baseClassForTests>com.hexabank.account.contract.AccountEventsBase</baseClassForTests>
                     <nameSuffixForTests>IT</nameSuffixForTests>
                     <!-- Todavia sin contratos en este commit de wiring; se anaden en el siguiente. -->
                     <failOnNoContracts>false</failOnNoContracts>
