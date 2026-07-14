@@ -11,8 +11,8 @@ Contract.make {
         body([
                 eventId   : anyUuid(),
                 transferId: anyUuid(),
-                accountId : anyUuid(),
-                amount    : anyNumber()
+                accountId : $(consumer("40000000-0000-0000-0000-000000000002"), producer(regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"))),
+                amount    : $(consumer(40.00), producer(anyNumber()))
         ])
         headers {
             header("__TypeId__", "com.hexabank.shared.events.CreditRequested")
