@@ -271,22 +271,42 @@ Cada servicio sigue la misma estructura hexagonal:
 ## Tests
 
 ```bash
-./mvnw verify                          # todo el monorepo (requiere Docker)
+# Build en dos fases: la primera instala los 'stubs' jar de contrato en el repo local; la
+# segunda ejecuta toda la suite (los tests de contrato del consumidor los resuelven de ahi).
+./mvnw -B -DskipTests clean install    # instala artefactos y stubs de contrato
+./mvnw -B verify                       # todo el monorepo (requiere Docker)
 ./mvnw -pl account-service  -am verify # un servicio
-./mvnw -pl e2e-tests        -am verify # saga de extremo a extremo
 ```
 
 Los tests unitarios (`*Test`) corren sin contenedores; los de integración (`*IT`) levantan Kafka y
-Postgres con Testcontainers.
+Postgres con Testcontainers. Los **tests de contrato** (Spring Cloud Contract, ver abajo) también son
+`*IT` con Testcontainers.
+
+### Contract testing de eventos (Spring Cloud Contract)
+
+Cada productor de eventos define **contratos** (Groovy) de los mensajes que publica; SCC genera un
+test que verifica que el productor los emite tal cual (body JSON + cabecera `__TypeId__`) y publica un
+`stubs` jar. Cada consumidor reproduce esos stubs con **stub-runner** y comprueba que su
+`@KafkaListener` real procesa el mensaje y produce el efecto de la saga. Cobertura del mesh de eventos:
+
+| Topic | Productor | Consumidor(es) verificados |
+| --- | --- | --- |
+| `account-events` | account-service | transfer-service, ledger-service |
+| `account-commands` | transfer-service | account-service |
+| `transfer-events` | transfer-service | ledger-service |
+
+Una ruptura de esquema de un evento rompe el test del productor **y** el del consumidor antes de
+llegar a producción. (`CreditFailed` no tiene contrato: el código actual nunca lo emite.)
 
 ## Integración continua
 
 Cada push y cada Pull Request disparan el workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
 en GitHub Actions (dos jobs en paralelo):
 
-- **backend** — `./mvnw -B verify` sobre `ubuntu-latest`: tests unitarios + integración con
-  **Testcontainers** (Kafka + Postgres reales) + e2e. El runner trae Docker, así que los `*IT`
-  corren igual que en local, sin configurar servicios externos.
+- **backend** — sobre `ubuntu-latest`, build en dos fases (`./mvnw -B -DskipTests clean install` para
+  publicar los `stubs` jar de contrato, luego `./mvnw -B verify`): tests unitarios + integración con
+  **Testcontainers** (Kafka + Postgres reales) + contract testing + e2e. El runner trae Docker, así
+  que los `*IT` corren igual que en local, sin configurar servicios externos.
 - **frontend** — `npm ci && npm run build` (type-check con `tsc` + bundle con Vite).
 
 Además, un tercer job **loadtest** (prueba de carga k6) **no corre en cada PR**: solo a demanda
@@ -329,6 +349,7 @@ Cómo cada requisito de la oferta se materializa en el código:
 | **Java + Spring Boot** | 3 servicios en Java 21 / Spring Boot 3.5 (`account-service`, `transfer-service`, `ledger-service`) |
 | **APIs REST** | Controllers en `infrastructure/rest` con DTOs + Bean Validation; errores como `ProblemDetail` (`RestExceptionHandler`); endpoints versionados `/v1` |
 | **Contrato de API** | **OpenAPI 3 + Swagger UI** por servicio (springdoc) con login **OAuth2 authorization-code + PKCE** contra Keycloak; DTOs y endpoints anotados (`@Operation`/`@ApiResponses`/`@Schema`) |
+| **Contract testing** | **Spring Cloud Contract** sobre los eventos Kafka: contratos por productor (account/transfer) verificados en CI + verificación del consumidor con **stub-runner** en los 3 servicios (`account`↔`transfer`↔`ledger`) |
 | **Arquitectura hexagonal + SOLID** | `domain`/`application` sin framework; puertos segregados en `port/in` y `port/out`; adaptadores en `infrastructure`; wiring explícito en `config/BeanConfiguration` (inversión de dependencias real) |
 | **Kafka / event-driven** | Saga de orquestación sobre topics particionados (`account-commands`/`account-events`/`transfer-events`); `@KafkaListener` + `KafkaTemplate`; máquina de estados con **compensación** (`RefundRequested`) |
 | **Alta concurrencia** | Bloqueo optimista `@Version` + `saveAndFlush`; consumidores **idempotentes** (`processed_events` por `eventId`) frente al at-least-once; orden por clave de partición; servicios stateless; **virtual threads** (Java 21) en los 3 servicios; **rate limiting** por principal (Bucket4j) en `POST /v1/transfers`; **prueba de carga k6** (`loadtest/`) de N transferencias concurrentes con aserción de cero sobregiro |
@@ -344,10 +365,11 @@ Cómo cada requisito de la oferta se materializa en el código:
 Auth end-to-end (Keycloak OIDC, ownership + roles, login del frontend), **resiliencia de la saga**
 (patrón outbox, Idempotency-Key, DLT con retry/backoff y reaper), **concurrencia demostrable**
 (virtual threads, rate limiting, prueba de carga k6) y **tracing distribuido** (Micrometer Tracing +
-OTLP → Tempo, con propagación del contexto a través del outbox/Kafka) y el **contrato de API**
-(OpenAPI/Swagger UI con OAuth2, endpoints versionados `/v1`) ya implementados. Siguiente
-incremento hacia un diseño de producción:
+OTLP → Tempo, con propagación del contexto a través del outbox/Kafka), el **contrato de API**
+(OpenAPI/Swagger UI con OAuth2, endpoints versionados `/v1`) y el **contract testing de eventos**
+(Spring Cloud Contract: contratos por productor + verificación del consumidor con stub-runner en los
+tres servicios) ya implementados.
 
-- **Contract testing** entre productores y consumidores de eventos (Spring Cloud Contract).
-- El _Schema Registry_ (Avro) se evaluó y se descarta por ahora: se mantiene **JSON + cabeceras de
-  tipo**, una decisión consciente para esta iteración.
+- El _Schema Registry_ (Avro) se evaluó y se descarta: se mantiene **JSON + cabeceras de tipo**, una
+  decisión consciente para esta iteración; el contract testing cubre el contrato de eventos con mucho
+  menos riesgo.
