@@ -68,7 +68,7 @@ function getToken() {
 
 function createAccount(token, holder, balance) {
   const res = http.post(
-    `${ACCOUNTS}/accounts`,
+    `${ACCOUNTS}/v1/accounts`,
     JSON.stringify({ holder, initialBalance: balance }),
     { headers: authJsonHeaders(token) },
   );
@@ -90,7 +90,7 @@ export function setup() {
 // suman las N, forzando que solo EXPECTED_COMPLETED puedan debitar.
 export default function (data) {
   const res = http.post(
-    `${TRANSFERS}/transfers`,
+    `${TRANSFERS}/v1/transfers`,
     JSON.stringify({
       sourceAccountId: data.source,
       destinationAccountId: data.destination,
@@ -119,7 +119,7 @@ function pollStableBalance(token, accountId) {
   let last = null;
   let stableReads = 0;
   for (let i = 0; i < 40 && stableReads < 3; i++) {
-    const res = http.get(`${ACCOUNTS}/accounts/${accountId}`, { headers: authJsonHeaders(token) });
+    const res = http.get(`${ACCOUNTS}/v1/accounts/${accountId}`, { headers: authJsonHeaders(token) });
     const balance = parseFloat(res.json('balance'));
     stableReads = last !== null && Math.abs(balance - last) < 0.001 ? stableReads + 1 : 0;
     last = balance;
