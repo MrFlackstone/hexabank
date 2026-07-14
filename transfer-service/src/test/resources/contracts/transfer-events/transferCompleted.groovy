@@ -10,7 +10,7 @@ Contract.make {
         sentTo "transfer-events"
         body([
                 eventId   : anyUuid(),
-                transferId: anyUuid()
+                transferId: $(consumer("50000000-0000-0000-0000-000000000001"), producer(regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")))
         ])
         headers {
             header("__TypeId__", "com.hexabank.shared.events.TransferCompleted")
