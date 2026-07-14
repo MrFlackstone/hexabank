@@ -10,7 +10,7 @@ Contract.make {
         sentTo "account-events"
         body([
                 eventId   : anyUuid(),
-                transferId: anyUuid(),
+                transferId: $(consumer("10000000-0000-0000-0000-000000000001"), producer(regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"))),
                 accountId : anyUuid(),
                 amount    : anyNumber()
         ])

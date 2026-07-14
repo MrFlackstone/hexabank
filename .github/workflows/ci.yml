@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-  workflow_dispatch:   # permite lanzar la prueba de carga k6 a demanda
+  workflow_dispatch: # permite lanzar la prueba de carga k6 a demanda
 
 # Cancela ejecuciones en curso de la misma rama/PR cuando llega un push nuevo.
 concurrency:
@@ -17,7 +17,7 @@ permissions:
 jobs:
   backend:
     name: Backend (mvnw verify)
-    runs-on: ubuntu-latest   # trae Docker preinstalado -> Testcontainers (Kafka + Postgres) sin servicios extra
+    runs-on: ubuntu-latest # trae Docker preinstalado -> Testcontainers (Kafka + Postgres) sin servicios extra
     steps:
       - uses: actions/checkout@v4
 
@@ -33,6 +33,11 @@ jobs:
         run: chmod +x ./mvnw
 
       # Reactor completo: tests unitarios (Surefire) + integracion con Testcontainers (Failsafe) + e2e.
+      # Fase 1: instala los artefactos y los 'stubs' jar en el repo local, para que los tests de
+      # contrato del lado consumidor (stub-runner en modo LOCAL) resuelvan los stubs del productor.
+      - name: Install artifacts and stubs
+        run: ./mvnw -B -DskipTests clean install
+      # Fase 2: ejecuta toda la suite, incluida la generación y verificación de contratos.
       - name: Build and test
         run: ./mvnw -B verify
 
@@ -58,9 +63,9 @@ jobs:
       - name: Type-check and build
         run: npm run build
 
-  # Prueba de carga k6 (Fase 11): levanta el stack por compose y dispara N transferencias
-  # concurrentes sobre la misma cuenta, verificando cero sobregiro. Es cara (build + stack completo),
-  # asi que NO corre en cada PR: solo a demanda (workflow_dispatch) o al integrar en main.
+  # Prueba de carga k6: levanta el stack por compose y dispara N transferencias
+  # concurrentes sobre la misma cuenta, verificando cero sobregiro.
+  # NO corre en cada PR: solo a demanda (workflow_dispatch) o al integrar en main.
   loadtest:
     name: Load test (k6 concurrencia)
     runs-on: ubuntu-latest

@@ -10,8 +10,8 @@ Contract.make {
         sentTo "account-events"
         body([
                 eventId  : anyUuid(),
-                accountId: anyUuid(),
-                ownerId  : anyNonBlankString()
+                accountId: $(consumer("20000000-0000-0000-0000-000000000009"), producer(regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"))),
+                ownerId  : $(consumer("alice"), producer(anyNonBlankString()))
         ])
         headers {
             header("__TypeId__", "com.hexabank.shared.events.AccountOpened")
