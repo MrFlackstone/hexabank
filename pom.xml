@@ -16,6 +16,14 @@
         Los servicios se anaden como modulos en sus respectivas fases.
     </description>
 
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>https://opensource.org/licenses/MIT</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
     <!--
         No heredamos de spring-boot-starter-parent. En su lugar importamos el BOM
         spring-boot-dependencies en <dependencyManagement>. Asi 'shared-events' (modulo
