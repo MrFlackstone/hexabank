@@ -28,6 +28,7 @@ dist/
 # Entorno / secretos
 .env
 *.env.local
+.env.production
 
 # SO
 .DS_Store
