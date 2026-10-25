@@ -57,7 +57,7 @@ class LedgerEventsConsumerContractIT {
     private static final UUID ACCOUNT_OPENED = UUID.fromString("20000000-0000-0000-0000-000000000009");
     private static final String ACCOUNT_OPENED_OWNER = "alice";
 
-    static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
+    static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16.15-alpine");
     static final org.testcontainers.kafka.KafkaContainer kafka =
             new org.testcontainers.kafka.KafkaContainer(DockerImageName.parse("apache/kafka:3.9.1"));
 

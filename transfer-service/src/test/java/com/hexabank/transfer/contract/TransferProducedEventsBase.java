@@ -51,7 +51,7 @@ public abstract class TransferProducedEventsBase {
     // y Transfer_eventsIT) comparten el mismo contexto Spring cacheado; con @Container/@Testcontainers,
     // JUnit pararía el contenedor tras la primera clase y la segunda reusaría un DataSource apuntando a
     // un Postgres ya caído.
-    static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
+    static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16.15-alpine");
     static final org.testcontainers.kafka.KafkaContainer kafka =
             new org.testcontainers.kafka.KafkaContainer(DockerImageName.parse("apache/kafka:3.9.1"));
 

@@ -64,7 +64,7 @@ class AccountEventsConsumerContractIT {
     private static final UUID DESTINATION = UUID.fromString("30000000-0000-0000-0000-000000000002");
     private static final BigDecimal AMOUNT = new BigDecimal("40.00");
 
-    static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
+    static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16.15-alpine");
     static final org.testcontainers.kafka.KafkaContainer kafka =
             new org.testcontainers.kafka.KafkaContainer(DockerImageName.parse("apache/kafka:3.9.1"));
 

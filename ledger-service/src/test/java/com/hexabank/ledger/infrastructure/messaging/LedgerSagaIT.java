@@ -49,7 +49,7 @@ class LedgerSagaIT {
 
     @Container
     @ServiceConnection
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
+    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16.15-alpine");
 
     @Container
     static org.testcontainers.kafka.KafkaContainer kafka =

@@ -45,10 +45,10 @@ class TransferSagaE2EIT {
             new org.testcontainers.kafka.KafkaContainer(DockerImageName.parse("apache/kafka:3.9.1"));
 
     @Container
-    static PostgreSQLContainer<?> accountDb = new PostgreSQLContainer<>("postgres:16-alpine");
+    static PostgreSQLContainer<?> accountDb = new PostgreSQLContainer<>("postgres:16.15-alpine");
 
     @Container
-    static PostgreSQLContainer<?> transferDb = new PostgreSQLContainer<>("postgres:16-alpine");
+    static PostgreSQLContainer<?> transferDb = new PostgreSQLContainer<>("postgres:16.15-alpine");
 
     static ConfigurableApplicationContext accountContext;
     static ConfigurableApplicationContext transferContext;

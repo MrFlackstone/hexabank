@@ -39,7 +39,7 @@ class AccountPersistenceAdapterIT {
 
     @Container
     @ServiceConnection
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
+    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16.15-alpine");
 
     @Autowired
     AccountPersistenceAdapter adapter;

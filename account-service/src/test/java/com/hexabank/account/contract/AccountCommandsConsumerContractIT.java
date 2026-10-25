@@ -53,7 +53,7 @@ class AccountCommandsConsumerContractIT {
     private static final UUID ACCOUNT_CREDIT = UUID.fromString("40000000-0000-0000-0000-000000000002");
     private static final UUID ACCOUNT_REFUND = UUID.fromString("40000000-0000-0000-0000-000000000003");
 
-    static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
+    static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16.15-alpine");
     static final org.testcontainers.kafka.KafkaContainer kafka =
             new org.testcontainers.kafka.KafkaContainer(DockerImageName.parse("apache/kafka:3.9.1"));
 
