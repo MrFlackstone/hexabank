@@ -42,7 +42,7 @@ services:
 
   # --- UI web para inspeccionar topics, particiones y consumer-groups en la demo. ---
   kafka-ui:
-    image: provectuslabs/kafka-ui:latest
+    image: ghcr.io/kafbat/kafka-ui:v1.5.0
     container_name: kafka-ui
     ports:
       - "8080:8080"
@@ -62,7 +62,7 @@ services:
   # Bloque de puertos host 544x (account=5442, transfer=5443, ledger=5444): evita el
   # PostgreSQL nativo de Windows que ocupa el 5432. Dentro del contenedor sigue siendo 5432.
   postgres-account:
-    image: postgres:16-alpine
+    image: postgres:16.15-alpine
     container_name: postgres-account
     ports:
       - "5442:5432"
@@ -84,7 +84,7 @@ services:
 
   # --- Postgres dedicado de transfer-service (DB-per-service). ---
   postgres-transfer:
-    image: postgres:16-alpine
+    image: postgres:16.15-alpine
     container_name: postgres-transfer
     ports:
       - "5443:5432"
@@ -106,7 +106,7 @@ services:
 
   # --- Postgres dedicado de ledger-service (DB-per-service). ---
   postgres-ledger:
-    image: postgres:16-alpine
+    image: postgres:16.15-alpine
     container_name: postgres-ledger
     ports:
       - "5444:5432"
@@ -213,7 +213,7 @@ services:
   # --- Postgres dedicado de Keycloak. El IdP persiste realms/usuarios/clientes aqui, de
   # modo que el estado sobrevive a reinicios (modo produccion, no memoria efimera). ---
   postgres-keycloak:
-    image: postgres:16-alpine
+    image: postgres:16.15-alpine
     container_name: postgres-keycloak
     ports:
       - "5445:5432"
@@ -239,7 +239,7 @@ services:
   # =false permiten HTTP sin TLS dentro de la red interna (una demo local; en produccion real: TLS +
   # hostname fijo). Consola admin: http://localhost:8180 (admin/admin). ---
   keycloak:
-    image: quay.io/keycloak/keycloak:26.0
+    image: quay.io/keycloak/keycloak:26.8.1
     container_name: keycloak
     command: ["start", "--import-realm"]
     environment:
@@ -287,7 +287,7 @@ services:
   # --- Observabilidad (Fase 5). Prometheus raspa /actuator/prometheus de los 3 servicios (modelo
   # pull) y Grafana los visualiza. Provisioning automatico de datasource + dashboard. ---
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v3.15.1
     container_name: prometheus
     ports:
       - "127.0.0.1:9090:9090"   # solo loopback: Grafana lo alcanza por la red interna
@@ -302,7 +302,7 @@ services:
     restart: unless-stopped
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:13.2.4
     container_name: grafana
     ports:
       - "127.0.0.1:3001:3000"   # solo loopback (el frontend ocupa el host 3000)
@@ -327,7 +327,7 @@ services:
   # (tempo:4318) y Grafana los consulta por su API HTTP (3200, solo loopback). Completa la
   # observabilidad: metricas (Prometheus) + trazas (Tempo) en el mismo Grafana. ---
   tempo:
-    image: grafana/tempo:latest
+    image: grafana/tempo:3.1.1
     container_name: tempo
     command: ["-config.file=/etc/tempo.yaml"]
     ports:
